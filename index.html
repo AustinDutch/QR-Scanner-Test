@@ -382,8 +382,8 @@
                 const email = prompt("Please enter your @dutchx.com email:");
                 if (email) {
                     const emailDomain = email.split('@')[1];
-                    if (emailDomain !== config.allowedDomain) {
-                        showStatus(`❌ Access denied. Only @${config.allowedDomain} emails are allowed.`, 'error');
+                    if (emailDomain !== 'dutchx.com') {
+                        showStatus(`❌ Access denied. Only @dutchx.com emails are allowed.`, 'error');
                         return;
                     }
                     
