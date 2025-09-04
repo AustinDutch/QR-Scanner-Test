@@ -153,6 +153,19 @@
             border-radius: 15px;
             margin: 20px 0;
             overflow: hidden;
+            min-height: 350px; /* Ensure minimum height for camera */
+        }
+        
+        /* Improve camera view styling */
+        #qr-reader video {
+            width: 100% !important;
+            height: auto !important;
+            object-fit: cover;
+        }
+        
+        /* Style the scan region */
+        #qr-reader canvas {
+            max-width: 100% !important;
         }
         
         .controls {
