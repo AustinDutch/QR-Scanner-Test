@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.2.0</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <title>QR Code Scanner & Logger v2.5.0</title>
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -58,6 +58,14 @@
             display: inline-block;
         }
         
+        .scanner-status {
+            background: #f0f8ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0066cc;
+        }
+        
         #qr-reader {
             border: 3px dashed #667eea;
             border-radius: 15px;
@@ -71,20 +79,6 @@
             width: 100% !important;
             height: auto !important;
             object-fit: cover;
-        }
-        
-        #qr-reader canvas {
-            max-width: 100% !important;
-        }
-        
-        .scan-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: none;
-            z-index: 10;
         }
         
         .scan-success {
@@ -178,54 +172,6 @@
             background: #cce7ff;
             color: #004085;
             border: 1px solid #b3d7ff;
-        }
-        
-        .config-section {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        
-        .config-section h3 {
-            color: #333;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .form-group input {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s ease;
-        }
-        
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .user-info {
-            background: #e8f4fd;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px 0;
-            font-size: 14px;
-            color: #0066cc;
         }
         
         .manual-entry-section {
@@ -333,29 +279,12 @@
         <div class="header">
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
-            <p>Scan QR codes and automatically log to Airtable</p>
-            <div class="version">Version 2.2.0</div>
+            <p>ZXing-powered QR code scanner with automatic Airtable logging</p>
+            <div class="version">Version 2.5.0 - ZXing + Auto-configured</div>
         </div>
 
-        <div class="config-section">
-            <h3>Airtable Configuration</h3>
-            <div class="form-group">
-                <label for="airtable-token">Airtable Personal Access Token:</label>
-                <input type="password" id="airtable-token" placeholder="pat...">
-            </div>
-            <div class="form-group">
-                <label for="base-id">Base ID:</label>
-                <input type="text" id="base-id" placeholder="app...">
-            </div>
-            <div class="form-group">
-                <label for="table-name">Table Name:</label>
-                <input type="text" id="table-name" value="QR Scans" placeholder="QR Scans">
-            </div>
-            <button class="btn" onclick="testAirtableConnection()">Test Connection</button>
-        </div>
-
-        <div class="user-info" id="user-info">
-            <button class="btn" onclick="signInWithGoogle()">Sign in with Google</button>
+        <div class="scanner-status">
+            Ready to scan! No login required - click "Start Scanner" below.
         </div>
 
         <div class="session-info" id="session-info" style="display: none;">
@@ -395,9 +324,22 @@
     </div>
 
     <script>
-        let html5QrCode;
+        // EMBEDDED AIRTABLE CONFIGURATION
+        const config = {
+            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b', 
+            baseId: 'appt0JKW1vqQNEECo', // Your base ID
+            tableName: 'QR Scans'
+        };
+
+        // Auto-configured user - no authentication required
+        const currentUser = {
+            name: 'Scanner User',
+            email: 'scanner@dutchx.com'
+        };
+
+        // ZXing scanner variables
+        let codeReader;
         let isScanning = false;
-        let currentUser = null;
         let scanLog = [];
         let sessionScans = new Set();
         let sessionStartTime = null;
@@ -405,50 +347,13 @@
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
         let lastScanTime = 0;
-        const SCAN_COOLDOWN_MS = 200; // Reduced to 0.2 seconds for faster re-scanning
+        const SCAN_COOLDOWN_MS = 200;
         let torchEnabled = false;
 
-        const config = {
-            airtableToken: '',
-            baseId: '',
-            tableName: 'QR Scans'
-        };
-
-        function signInWithGoogle() {
-            const email = prompt("Please enter your @dutchx.com email:");
-            if (email) {
-                const emailDomain = email.split('@')[1];
-                if (emailDomain !== 'dutchx.com') {
-                    showStatus('Access denied. Only @dutchx.com emails are allowed.', 'error');
-                    return;
-                }
-                
-                const name = prompt("Please enter your full name:");
-                if (name) {
-                    currentUser = { name: name, email: email };
-                    updateUserInfo();
-                    showStatus(`Welcome, ${name}!`, 'success');
-                }
-            }
-        }
-
-        function updateUserInfo() {
-            const userInfoDiv = document.getElementById('user-info');
-            if (currentUser) {
-                userInfoDiv.innerHTML = `
-                    <strong>Logged in as:</strong> ${currentUser.name} (${currentUser.email})
-                `;
-            }
-        }
-
         async function startScanning() {
-            if (!config.airtableToken || !config.baseId) {
-                showStatus('Please configure Airtable settings first!', 'error');
-                return;
-            }
-
-            if (!currentUser) {
-                showStatus('Please sign in first!', 'error');
+            // Validate embedded token
+            if (!config.airtableToken || config.airtableToken === 'YOUR_AIRTABLE_TOKEN_HERE') {
+                showStatus('Error: Airtable token not configured. Please contact administrator.', 'error');
                 return;
             }
 
@@ -461,46 +366,34 @@
             resetSessionTimeout();
 
             try {
-                showStatus('Requesting camera access...', 'info');
+                showStatus('Starting ZXing scanner...', 'info');
                 
-                html5QrCode = new Html5Qrcode("qr-reader");
+                // Initialize ZXing code reader
+                codeReader = new ZXing.BrowserQRCodeReader();
                 
-                // High-performance scanning configuration
-                const config_scan = {
-                    fps: 30, // Increased to 30 for faster detection
-                    qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        // Dynamic scan area - 80% of smallest dimension
-                        let minEdgePercentage = 0.8;
-                        let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-                        let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-                        return {
-                            width: qrboxSize,
-                            height: qrboxSize
-                        };
-                    },
-                    aspectRatio: 1.0,
-                    disableFlip: false, // Allow both normal and flipped detection
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true // Use native browser detection
-                    }
-                };
+                // Get video input devices
+                const videoInputDevices = await ZXing.BrowserQRCodeReader.listVideoInputDevices();
+                
+                // Prefer back camera
+                let selectedDeviceId;
+                if (videoInputDevices.length > 0) {
+                    const backCamera = videoInputDevices.find(device => 
+                        device.label.toLowerCase().includes('back') || 
+                        device.label.toLowerCase().includes('rear') ||
+                        device.label.toLowerCase().includes('environment')
+                    );
+                    selectedDeviceId = backCamera ? backCamera.deviceId : videoInputDevices[0].deviceId;
+                }
 
-                // High-resolution camera constraints for better detection
-                const cameraConfig = { 
-                    facingMode: "environment",
-                    width: { ideal: 1920, min: 640 },
-                    height: { ideal: 1080, min: 480 },
-                    focusMode: "continuous",
-                    exposureMode: "continuous",
-                    whiteBalanceMode: "continuous"
-                };
-
-                await html5QrCode.start(
-                    cameraConfig,
-                    config_scan,
-                    (decodedText) => onScanSuccess(decodedText),
-                    (errorMessage) => {
-                        // Completely silent - no console spam
+                // Start ZXing decoding
+                await codeReader.decodeFromVideoDevice(
+                    selectedDeviceId, 
+                    'qr-reader', 
+                    (result, err) => {
+                        if (result) {
+                            onScanSuccess(result.text);
+                        }
+                        // Ignore scanning errors (normal when no QR visible)
                     }
                 );
 
@@ -508,182 +401,84 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('High-performance scanner active! (v2.2.0)', 'success');
+                showStatus('ZXing scanner active! Point at QR codes (v2.5.0)', 'success');
 
             } catch (err) {
-                console.error("Camera error:", err);
+                console.error("ZXing scanner error:", err);
                 
-                // Fallback to basic config if high-res fails
-                try {
-                    showStatus('Trying fallback configuration...', 'info');
-                    
-                    const basicConfig = {
-                        fps: 20,
-                        qrbox: { width: 250, height: 250 },
-                        aspectRatio: 1.0
-                    };
-
-                    await html5QrCode.start(
-                        { facingMode: "environment" },
-                        basicConfig,
-                        (decodedText) => onScanSuccess(decodedText),
-                        () => {}
-                    );
-
-                    isScanning = true;
-                    document.getElementById('start-btn').disabled = true;
-                    document.getElementById('stop-btn').disabled = false;
-                    document.getElementById('scanner-controls').style.display = 'flex';
-                    showStatus('Fallback scanner active!', 'success');
-
-                } catch (fallbackErr) {
-                    // Specific error handling
-                    if (err.name === 'NotAllowedError') {
-                        showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
-                    } else if (err.name === 'NotFoundError') {
-                        showStatus('No camera found. Please check your device.', 'error');
-                    } else if (err.name === 'NotReadableError') {
-                        showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
-                    } else {
-                        showStatus(`Camera error: ${err.message || err}`, 'error');
-                    }
-                    
-                    // Reset session if camera fails
-                    sessionStartTime = null;
-                    document.getElementById('session-info').style.display = 'none';
+                if (err.name === 'NotAllowedError') {
+                    showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+                } else if (err.name === 'NotFoundError') {
+                    showStatus('No camera found. Please check your device.', 'error');
+                } else if (err.name === 'NotReadableError') {
+                    showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
+                } else {
+                    showStatus(`ZXing scanner error: ${err.message || err}`, 'error');
                 }
+                
+                sessionStartTime = null;
+                document.getElementById('session-info').style.display = 'none';
             }
         }
 
         function stopScanning() {
-            if (html5QrCode && isScanning) {
-                html5QrCode.stop().then(() => {
-                    isScanning = false;
-                    document.getElementById('start-btn').disabled = false;
-                    document.getElementById('stop-btn').disabled = true;
-                    document.getElementById('session-info').style.display = 'none';
-                    document.getElementById('scanner-controls').style.display = 'none';
-                    clearTimeout(sessionTimeout);
-                    showStatus(`Scanner stopped. Session completed: ${sessionScanCount} unique scans`, 'info');
-                }).catch(err => {
-                    console.error("Error stopping scanner:", err);
-                });
+            if (codeReader && isScanning) {
+                codeReader.reset();
+                isScanning = false;
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+                document.getElementById('session-info').style.display = 'none';
+                document.getElementById('scanner-controls').style.display = 'none';
+                clearTimeout(sessionTimeout);
+                showStatus(`ZXing scanner stopped. Session: ${sessionScanCount} unique scans`, 'info');
             }
         }
 
-        async function toggleTorch() {
-            try {
-                const video = document.querySelector('#qr-reader video');
-                if (!video || !video.srcObject) {
-                    showStatus('Camera not active', 'error');
-                    return;
-                }
-
-                const track = video.srcObject.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                
-                if (capabilities.torch) {
-                    torchEnabled = !torchEnabled;
-                    await track.applyConstraints({
-                        advanced: [{ torch: torchEnabled }]
-                    });
-                    
-                    const torchBtn = document.getElementById('torch-btn');
-                    torchBtn.textContent = torchEnabled ? 'Flashlight ON' : 'Flashlight';
-                    torchBtn.style.background = torchEnabled ? 
-                        'linear-gradient(45deg, #ffeb3b, #ffc107)' : 
-                        'linear-gradient(45deg, #ff9800, #ff5722)';
-                    
-                    showStatus(`Flashlight ${torchEnabled ? 'ON' : 'OFF'}`, 'info');
-                } else {
-                    showStatus('Flashlight not supported on this device', 'info');
-                }
-            } catch (error) {
-                console.error('Torch error:', error);
-                showStatus('Could not toggle flashlight', 'error');
+        async function onScanSuccess(decodedText) {
+            console.log(`ZXing detected: ${decodedText}`);
+            
+            const now = Date.now();
+            if (now - lastScanTime < SCAN_COOLDOWN_MS) {
+                return; // Ignore rapid successive scans
             }
-        }
-
-        async function triggerAutoFocus() {
-            try {
-                const video = document.querySelector('#qr-reader video');
-                if (!video || !video.srcObject) {
-                    showStatus('Camera not active', 'error');
-                    return;
-                }
-
-                const track = video.srcObject.getVideoTracks()[0];
-                await track.applyConstraints({
-                    advanced: [{ focusMode: "single-shot" }]
-                });
-                
-                showStatus('Auto-focus triggered', 'info');
-                
-                setTimeout(() => {
-                    track.applyConstraints({
-                        advanced: [{ focusMode: "continuous" }]
-                    }).catch(() => {});
-                }, 1000);
-            } catch (error) {
-                console.error('Focus error:', error);
-                showStatus('Focus adjustment not supported', 'info');
+            lastScanTime = now;
+            
+            // Visual feedback
+            const qrReader = document.getElementById('qr-reader');
+            qrReader.classList.add('scan-success');
+            setTimeout(() => qrReader.classList.remove('scan-success'), 500);
+            
+            // Audio/haptic feedback
+            playSuccessSound();
+            vibrateFeedback();
+            
+            if (sessionScans.has(decodedText)) {
+                showStatus(`Already scanned "${decodedText}" in this session`, 'info');
+                return;
             }
-        }
+            
+            sessionScans.add(decodedText);
+            sessionScanCount++;
+            updateSessionInfo();
+            resetSessionTimeout();
+            
+            const location = await getCurrentLocation();
+            
+            const scanData = {
+                qr_content: decodedText,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                location: location,
+                area_name: 'Camera Scan',
+                session_id: sessionStartTime,
+                device_info: navigator.userAgent + ' (ZXing)'
+            };
 
-        function switchCamera() {
-            showStatus('Camera switching not implemented yet', 'info');
+            addToScanLog(scanData);
+            await sendToAirtable(scanData);
+            
+            showStatus(`Scanned: ${decodedText}`, 'success');
         }
-
-        function playSuccessSound() {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-                
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.3);
-            } catch (error) {
-                console.log('Audio feedback not supported');
-            }
-        }
-
-        function vibrateFeedback() {
-            if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
-            }
-        }
-
-        function resetSessionTimeout() {
-            clearTimeout(sessionTimeout);
-            sessionTimeout = setTimeout(() => {
-                if (isScanning) {
-                    stopScanning();
-                    showStatus(`Session timed out after ${SESSION_TIMEOUT_MINUTES} minutes of inactivity`, 'info');
-                }
-            }, SESSION_TIMEOUT_MINUTES * 60 * 1000);
-        }
-
-        function updateSessionInfo() {
-            if (sessionStartTime) {
-                const elapsed = new Date() - new Date(sessionStartTime);
-                const minutes = Math.floor(elapsed / 60000);
-                const seconds = Math.floor((elapsed % 60000) / 1000);
-                document.getElementById('session-time').textContent = 
-                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                document.getElementById('session-count').textContent = sessionScanCount;
-            }
-        }
-
-        setInterval(updateSessionInfo, 1000);
 
         async function submitManualEntry() {
             const manualInput = document.getElementById('manual-qr-input');
@@ -691,11 +486,6 @@
             
             if (!qrContent) {
                 showStatus('Please enter QR code content first', 'error');
-                return;
-            }
-            
-            if (!currentUser) {
-                showStatus('Please sign in first!', 'error');
                 return;
             }
             
@@ -737,54 +527,96 @@
             showStatus(`Manually logged: ${qrContent}`, 'success');
         }
 
-        async function onScanSuccess(decodedText) {
-            console.log(`QR Code detected: ${decodedText}`);
-            
-            const now = Date.now();
-            if (now - lastScanTime < SCAN_COOLDOWN_MS) {
-                console.log('Scan ignored - cooldown period');
-                return;
-            }
-            lastScanTime = now;
-            
-            // Immediate visual feedback
-            const qrReader = document.getElementById('qr-reader');
-            qrReader.classList.add('scan-success');
-            setTimeout(() => {
-                qrReader.classList.remove('scan-success');
-            }, 500);
-            
-            // Immediate audio/haptic feedback
-            playSuccessSound();
-            vibrateFeedback();
-            
-            if (sessionScans.has(decodedText)) {
-                showStatus(`Already scanned "${decodedText}" in this session`, 'info');
-                return;
-            }
-            
-            sessionScans.add(decodedText);
-            sessionScanCount++;
-            updateSessionInfo();
-            resetSessionTimeout();
-            
-            const location = await getCurrentLocation();
-            
-            const scanData = {
-                qr_content: decodedText,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                location: location,
-                area_name: 'Camera Scan',
-                session_id: sessionStartTime,
-                device_info: navigator.userAgent
-            };
+        async function toggleTorch() {
+            try {
+                const video = document.querySelector('#qr-reader video');
+                if (!video || !video.srcObject) {
+                    showStatus('Camera not active', 'error');
+                    return;
+                }
 
-            addToScanLog(scanData);
-            await sendToAirtable(scanData);
-            
-            showStatus(`Scanned: ${decodedText}`, 'success');
+                const track = video.srcObject.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    torchEnabled = !torchEnabled;
+                    await track.applyConstraints({
+                        advanced: [{ torch: torchEnabled }]
+                    });
+                    
+                    const torchBtn = document.getElementById('torch-btn');
+                    torchBtn.textContent = torchEnabled ? 'Flashlight ON' : 'Flashlight';
+                    torchBtn.style.background = torchEnabled ? 
+                        'linear-gradient(45deg, #ffeb3b, #ffc107)' : 
+                        'linear-gradient(45deg, #ff9800, #ff5722)';
+                    
+                    showStatus(`Flashlight ${torchEnabled ? 'ON' : 'OFF'}`, 'info');
+                } else {
+                    showStatus('Flashlight not supported on this device', 'info');
+                }
+            } catch (error) {
+                showStatus('Could not toggle flashlight', 'error');
+            }
         }
+
+        async function triggerAutoFocus() {
+            showStatus('Focus adjustment not available with ZXing', 'info');
+        }
+
+        function switchCamera() {
+            showStatus('Camera switching not implemented yet', 'info');
+        }
+
+        function playSuccessSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (error) {
+                console.log('Audio feedback not supported');
+            }
+        }
+
+        function vibrateFeedback() {
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+        }
+
+        function resetSessionTimeout() {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = setTimeout(() => {
+                if (isScanning) {
+                    stopScanning();
+                    showStatus(`Session timed out after ${SESSION_TIMEOUT_MINUTES} minutes`, 'info');
+                }
+            }, SESSION_TIMEOUT_MINUTES * 60 * 1000);
+        }
+
+        function updateSessionInfo() {
+            if (sessionStartTime) {
+                const elapsed = new Date() - new Date(sessionStartTime);
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('session-time').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                document.getElementById('session-count').textContent = sessionScanCount;
+            }
+        }
+
+        setInterval(updateSessionInfo, 1000);
 
         async function getCurrentLocation() {
             return new Promise((resolve) => {
@@ -798,7 +630,6 @@
                             });
                         },
                         (error) => {
-                            console.error("Geolocation error:", error);
                             resolve({ error: "Location access denied" });
                         },
                         { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
@@ -839,44 +670,11 @@
                 } else {
                     const error = await response.text();
                     console.error('Airtable error:', error);
-                    showStatus('Error logging to Airtable. Check your configuration.', 'error');
+                    showStatus('Error logging to Airtable. Check configuration.', 'error');
                 }
             } catch (error) {
                 console.error('Network error:', error);
                 showStatus('Network error. Scan saved locally.', 'error');
-            }
-        }
-
-        async function testAirtableConnection() {
-            const token = document.getElementById('airtable-token').value;
-            const baseId = document.getElementById('base-id').value;
-            const tableName = document.getElementById('table-name').value;
-
-            if (!token || !baseId) {
-                showStatus('Please enter both token and base ID', 'error');
-                return;
-            }
-
-            config.airtableToken = token;
-            config.baseId = baseId;
-            config.tableName = tableName || 'QR Scans';
-
-            const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(config.tableName)}?maxRecords=1`;
-            
-            try {
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    showStatus('Airtable connection successful!', 'success');
-                } else {
-                    showStatus('Airtable connection failed. Check your credentials.', 'error');
-                }
-            } catch (error) {
-                showStatus('Network error testing connection', 'error');
             }
         }
 
@@ -907,28 +705,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const storedToken = localStorage.getItem('airtable-token');
-            const storedBaseId = localStorage.getItem('base-id');
-            const storedTableName = localStorage.getItem('table-name');
-            
-            if (storedToken) document.getElementById('airtable-token').value = storedToken;
-            if (storedBaseId) document.getElementById('base-id').value = storedBaseId;
-            if (storedTableName) document.getElementById('table-name').value = storedTableName;
-
             document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     submitManualEntry();
                 }
-            });
-
-            document.getElementById('airtable-token').addEventListener('change', (e) => {
-                localStorage.setItem('airtable-token', e.target.value);
-            });
-            document.getElementById('base-id').addEventListener('change', (e) => {
-                localStorage.setItem('base-id', e.target.value);
-            });
-            document.getElementById('table-name').addEventListener('change', (e) => {
-                localStorage.setItem('table-name', e.target.value);
             });
         });
     </script>
