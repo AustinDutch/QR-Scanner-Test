@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -513,15 +512,25 @@
             showStatus(`✅ Manually logged: ${qrContent}`, 'success');
         }
 
-        async function onScanSuccess(decodedText, decodedResult) {
+        async function onScanSuccess(decodedText) {
             console.log(`QR Code detected: ${decodedText}`);
             
+            // Prevent rapid multiple scans
+            const now = Date.now();
+            if (now - lastScanTime < SCAN_COOLDOWN_MS) {
+                console.log('Scan ignored - cooldown period');
+                return;
+            }
+            lastScanTime = now;
+            
+            // Immediate feedback
+            vibrateFeedback();
+            playSuccessSound();
+            
+            // Check for duplicates in session
             if (sessionScans.has(decodedText)) {
-                const allowDuplicate = confirm(`You've already scanned "${decodedText}" in this session. Scan again?`);
-                if (!allowDuplicate) {
-                    showStatus(`⚠️ Duplicate scan blocked: ${decodedText}`, 'info');
-                    return;
-                }
+                showStatus(`⚠️ Already scanned "${decodedText}" in this session`, 'info');
+                return;
             }
             
             sessionScans.add(decodedText);
