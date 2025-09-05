@@ -308,7 +308,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>Scan QR codes and automatically log to Airtable</p>
-            <div class="version">Version 2.1.0</div>
+            <div class="version">Version 2.1.1</div>
         </div>
 
         <div class="config-section">
@@ -431,44 +431,58 @@
             sessionScanCount = 0;
             updateSessionInfo();
             document.getElementById('session-info').style.display = 'block';
-            document.getElementById('scanner-controls').style.display = 'flex';
             
             resetSessionTimeout();
 
             try {
+                showStatus('Requesting camera access...', 'info');
+                
                 html5QrCode = new Html5Qrcode("qr-reader");
                 
+                // Simplified, more reliable camera config
                 const config_scan = {
-                    fps: 30,
-                    qrbox: { width: 350, height: 350 },
-                    aspectRatio: 1.0,
-                    showTorchButtonIfSupported: true,
-                    showZoomSliderIfSupported: true,
-                    defaultZoomValueIfSupported: 2
+                    fps: 15,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+
+                // Try basic camera constraints first
+                const cameraConfig = { 
+                    facingMode: "environment"
                 };
 
                 await html5QrCode.start(
-                    { 
-                        facingMode: "environment",
-                        advanced: [
-                            { focusMode: "continuous" },
-                            { torch: false },
-                            { zoom: 2.0 }
-                        ]
-                    },
+                    cameraConfig,
                     config_scan,
                     (decodedText) => onScanSuccess(decodedText),
-                    () => {}
+                    (errorMessage) => {
+                        console.log('Scan error (normal):', errorMessage);
+                    }
                 );
 
                 isScanning = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
-                showStatus('Enhanced scanner started! (v2.1.0)', 'info');
+                document.getElementById('scanner-controls').style.display = 'flex';
+                showStatus('Camera active! Point at QR code (v2.1.0)', 'success');
 
             } catch (err) {
-                console.error("Error starting scanner:", err);
-                showStatus('Error starting scanner. Please check camera permissions.', 'error');
+                console.error("Camera error:", err);
+                
+                // More specific error handling
+                if (err.name === 'NotAllowedError') {
+                    showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+                } else if (err.name === 'NotFoundError') {
+                    showStatus('No camera found. Please check your device.', 'error');
+                } else if (err.name === 'NotReadableError') {
+                    showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
+                } else {
+                    showStatus(`Camera error: ${err.message || err}`, 'error');
+                }
+                
+                // Reset session if camera fails
+                sessionStartTime = null;
+                document.getElementById('session-info').style.display = 'none';
             }
         }
 
