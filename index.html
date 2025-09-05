@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.1.1</title>
+    <title>QR Code Scanner & Logger v2.2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         * {
@@ -48,14 +48,15 @@
         }
         
         .version {
-            font-size: 14px;
-            color: #007acc;
-            margin-top: 10px;
+            font-size: 16px;
+            color: #ffffff;
+            margin-top: 15px;
             font-weight: bold;
-            background: #e8f4fd;
-            padding: 5px 15px;
-            border-radius: 15px;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            padding: 8px 20px;
+            border-radius: 20px;
             display: inline-block;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
         }
         
         #qr-reader {
@@ -64,6 +65,7 @@
             margin: 20px 0;
             overflow: hidden;
             min-height: 350px;
+            position: relative;
         }
         
         #qr-reader video {
@@ -74,6 +76,17 @@
         
         #qr-reader canvas {
             max-width: 100% !important;
+        }
+        
+        .scan-success {
+            border: 3px solid #28a745 !important;
+            animation: successPulse 0.5s ease-in-out;
+        }
+        
+        @keyframes successPulse {
+            0% { border-color: #28a745; }
+            50% { border-color: #20c997; box-shadow: 0 0 20px #28a745; }
+            100% { border-color: #28a745; }
         }
         
         .controls {
@@ -312,7 +325,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>Scan QR codes and automatically log to Airtable</p>
-            <div class="version">Version 2.1.1</div>
+            <div class="version">Version 2.2.0</div>
         </div>
 
         <div class="config-section">
@@ -383,7 +396,7 @@
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
         let lastScanTime = 0;
-        const SCAN_COOLDOWN_MS = 500;
+        const SCAN_COOLDOWN_MS = 200;
         let torchEnabled = false;
 
         const config = {
@@ -443,50 +456,85 @@
                 
                 html5QrCode = new Html5Qrcode("qr-reader");
                 
-                // Simplified, more reliable camera config
                 const config_scan = {
-                    fps: 15,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
+                    fps: 30,
+                    qrbox: function(viewfinderWidth, viewfinderHeight) {
+                        let minEdgePercentage = 0.8;
+                        let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                        let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                        return {
+                            width: qrboxSize,
+                            height: qrboxSize
+                        };
+                    },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
                 };
 
-                // Try basic camera constraints first
                 const cameraConfig = { 
-                    facingMode: "environment"
+                    facingMode: "environment",
+                    width: { ideal: 1920, min: 640 },
+                    height: { ideal: 1080, min: 480 },
+                    focusMode: "continuous",
+                    exposureMode: "continuous",
+                    whiteBalanceMode: "continuous"
                 };
 
                 await html5QrCode.start(
                     cameraConfig,
                     config_scan,
                     (decodedText) => onScanSuccess(decodedText),
-                    (errorMessage) => {
-                        console.log('Scan error (normal):', errorMessage);
-                    }
+                    () => {}
                 );
 
                 isScanning = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('Camera active! Point at QR code (v2.1.1)', 'success');
+                showStatus('High-performance scanner active! (v2.2.0)', 'success');
 
             } catch (err) {
                 console.error("Camera error:", err);
                 
-                // More specific error handling
-                if (err.name === 'NotAllowedError') {
-                    showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
-                } else if (err.name === 'NotFoundError') {
-                    showStatus('No camera found. Please check your device.', 'error');
-                } else if (err.name === 'NotReadableError') {
-                    showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
-                } else {
-                    showStatus(`Camera error: ${err.message || err}`, 'error');
+                try {
+                    showStatus('Trying fallback configuration...', 'info');
+                    
+                    const basicConfig = {
+                        fps: 20,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0
+                    };
+
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        basicConfig,
+                        (decodedText) => onScanSuccess(decodedText),
+                        () => {}
+                    );
+
+                    isScanning = true;
+                    document.getElementById('start-btn').disabled = true;
+                    document.getElementById('stop-btn').disabled = false;
+                    document.getElementById('scanner-controls').style.display = 'flex';
+                    showStatus('Fallback scanner active!', 'success');
+
+                } catch (fallbackErr) {
+                    if (err.name === 'NotAllowedError') {
+                        showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+                    } else if (err.name === 'NotFoundError') {
+                        showStatus('No camera found. Please check your device.', 'error');
+                    } else if (err.name === 'NotReadableError') {
+                        showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
+                    } else {
+                        showStatus(`Camera error: ${err.message || err}`, 'error');
+                    }
+                    
+                    sessionStartTime = null;
+                    document.getElementById('session-info').style.display = 'none';
                 }
-                
-                // Reset session if camera fails
-                sessionStartTime = null;
-                document.getElementById('session-info').style.display = 'none';
             }
         }
 
@@ -682,14 +730,12 @@
             }
             lastScanTime = now;
             
-            // Immediate visual feedback
             const qrReader = document.getElementById('qr-reader');
             qrReader.classList.add('scan-success');
             setTimeout(() => {
                 qrReader.classList.remove('scan-success');
             }, 500);
             
-            // Immediate audio/haptic feedback
             playSuccessSound();
             vibrateFeedback();
             
@@ -840,32 +886,3 @@
                 }, 3000);
             }
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const storedToken = localStorage.getItem('airtable-token');
-            const storedBaseId = localStorage.getItem('base-id');
-            const storedTableName = localStorage.getItem('table-name');
-            
-            if (storedToken) document.getElementById('airtable-token').value = storedToken;
-            if (storedBaseId) document.getElementById('base-id').value = storedBaseId;
-            if (storedTableName) document.getElementById('table-name').value = storedTableName;
-
-            document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    submitManualEntry();
-                }
-            });
-
-            document.getElementById('airtable-token').addEventListener('change', (e) => {
-                localStorage.setItem('airtable-token', e.target.value);
-            });
-            document.getElementById('base-id').addEventListener('change', (e) => {
-                localStorage.setItem('base-id', e.target.value);
-            });
-            document.getElementById('table-name').addEventListener('change', (e) => {
-                localStorage.setItem('table-name', e.target.value);
-            });
-        });
-    </script>
-</body>
-</html>
