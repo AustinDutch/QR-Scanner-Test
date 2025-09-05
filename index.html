@@ -1,11 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.4.0</title>
+    <title>QR Code Scanner & Logger v2.5.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -53,11 +53,11 @@
             color: #ffffff;
             margin-top: 15px;
             font-weight: bold;
-            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
             padding: 8px 20px;
             border-radius: 20px;
             display: inline-block;
-            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
         }
         
         #qr-reader {
@@ -172,35 +172,6 @@
             border: 1px solid #b3d7ff;
         }
         
-        .user-info {
-            background: #e8f4fd;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            font-size: 14px;
-            color: #0066cc;
-        }
-        
-        .google-signin {
-            background: white;
-            border: 2px solid #4285f4;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .google-signin:hover {
-            background: #f8f9fa;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.2);
-        }
-        
         .manual-entry-section {
             background: #f0f8ff;
             border-radius: 15px;
@@ -307,20 +278,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>Scan QR codes and automatically log to Airtable</p>
-            <div class="version">Version 2.4.0</div>
-        </div>
-
-        <div class="user-info" id="user-info">
-            <div class="google-signin" onclick="signInWithGoogle()">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span><strong>Sign in with Google</strong></span>
-            </div>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">Only @dutchx.com accounts can access this scanner</p>
+            <div class="version">Version 2.5.0</div>
         </div>
 
         <div class="session-info" id="session-info" style="display: none;">
@@ -328,7 +286,7 @@
             <strong>Unique Scans:</strong> <span id="session-count">0</span>
         </div>
 
-        <div class="scanner-section" id="scanner-section" style="display: none;">
+        <div class="scanner-section">
             <div id="qr-reader"></div>
             <div class="controls">
                 <button class="btn" id="start-btn" onclick="startScanning()">Start Scanner</button>
@@ -353,7 +311,7 @@
 
         <div id="status" class="status" style="display: none;"></div>
 
-        <div class="log-section" id="log-section" style="display: none;">
+        <div class="log-section">
             <h3>Recent Scans</h3>
             <div id="scan-log"></div>
         </div>
@@ -362,7 +320,6 @@
     <script>
         let html5QrCode;
         let isScanning = false;
-        let currentUser = null;
         let scanLog = [];
         let sessionScans = new Set();
         let sessionStartTime = null;
@@ -373,124 +330,14 @@
         const SCAN_COOLDOWN_MS = 100; // Ultra-fast 0.1 second cooldown
         let torchEnabled = false;
 
-        // Pre-configured Airtable credentials (replace with your actual values)
+        // Pre-configured Airtable credentials - REPLACE THESE WITH YOUR VALUES
         const config = {
-            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b'
-            baseId: 'appt0JKW1vqQNEECo'
+            airtableToken: 'YOUR_AIRTABLE_TOKEN_HERE', // LINE 178: Replace with your actual token
+            baseId: 'YOUR_BASE_ID_HERE', // LINE 179: Replace with your actual base ID
             tableName: 'QR Scans'
         };
 
-        // Google Client ID (you'll need to replace this with your actual Google Client ID)
-        const GOOGLE_CLIENT_ID = '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com';
-
-        function initializeGoogleAuth() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                google.accounts.id.initialize({
-                    client_id: GOOGLE_CLIENT_ID,
-                    callback: handleCredentialResponse,
-                    auto_select: false,
-                    cancel_on_tap_outside: false
-                });
-            }
-        }
-
-        function signInWithGoogle() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                google.accounts.id.prompt((notification) => {
-                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                        // Fallback to popup
-                        google.accounts.id.renderButton(
-                            document.getElementById("google-signin-button"),
-                            { theme: "outline", size: "large" }
-                        );
-                    }
-                });
-            } else {
-                showStatus('Google Sign-In not available. Please refresh the page.', 'error');
-            }
-        }
-
-        function handleCredentialResponse(response) {
-            try {
-                const payload = JSON.parse(atob(response.credential.split('.')[1]));
-                
-                // Verify domain
-                const emailDomain = payload.email.split('@')[1];
-                if (emailDomain !== 'dutchx.com') {
-                    showStatus('Access denied. Only @dutchx.com accounts can access this scanner.', 'error');
-                    return;
-                }
-
-                // Check if email is verified
-                if (!payload.email_verified) {
-                    showStatus('Please use a verified Google account.', 'error');
-                    return;
-                }
-                
-                currentUser = {
-                    name: payload.name,
-                    email: payload.email,
-                    picture: payload.picture,
-                    verified: true
-                };
-                
-                updateUserInfo();
-                showScannerInterface();
-                showStatus(`Welcome, ${payload.name}!`, 'success');
-                
-            } catch (error) {
-                console.error('Error processing Google sign-in:', error);
-                showStatus('Error processing sign-in. Please try again.', 'error');
-            }
-        }
-
-        function updateUserInfo() {
-            const userInfoDiv = document.getElementById('user-info');
-            if (currentUser) {
-                userInfoDiv.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: #d4edda; border-radius: 10px;">
-                        <img src="${currentUser.picture}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%;">
-                        <div style="flex: 1; text-align: left;">
-                            <div style="font-weight: bold; color: #155724;">${currentUser.name}</div>
-                            <div style="font-size: 12px; color: #155724;">${currentUser.email}</div>
-                        </div>
-                        <button class="btn btn-secondary" onclick="signOut()" style="padding: 8px 16px; font-size: 14px;">Sign Out</button>
-                    </div>
-                `;
-            }
-        }
-
-        function signOut() {
-            currentUser = null;
-            stopScanning();
-            document.getElementById('user-info').innerHTML = `
-                <div class="google-signin" onclick="signInWithGoogle()">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    <span><strong>Sign in with Google</strong></span>
-                </div>
-                <p style="font-size: 12px; color: #666; margin-top: 10px;">Only @dutchx.com accounts can access this scanner</p>
-            `;
-            document.getElementById('scanner-section').style.display = 'none';
-            document.getElementById('log-section').style.display = 'none';
-            showStatus('Signed out successfully', 'info');
-        }
-
-        function showScannerInterface() {
-            document.getElementById('scanner-section').style.display = 'block';
-            document.getElementById('log-section').style.display = 'block';
-        }
-
         async function startScanning() {
-            if (!currentUser) {
-                showStatus('Please sign in first!', 'error');
-                return;
-            }
-
             sessionStartTime = new Date().toISOString();
             sessionScans.clear();
             sessionScanCount = 0;
@@ -557,7 +404,7 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('ULTRA-PERFORMANCE scanner active! (v2.4.0)', 'success');
+                showStatus('ULTRA-PERFORMANCE scanner active! (v2.5.0)', 'success');
 
             } catch (err) {
                 console.error("High-performance camera error:", err);
@@ -785,11 +632,6 @@
                 return;
             }
             
-            if (!currentUser) {
-                showStatus('Please sign in first!', 'error');
-                return;
-            }
-            
             if (sessionStartTime && sessionScans.has(qrContent)) {
                 showStatus(`Already logged "${qrContent}" in this session`, 'info');
                 return;
@@ -811,8 +653,8 @@
             
             const scanData = {
                 qr_content: qrContent,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
+                user_name: 'Anonymous User', // No sign-in required
+                user_email: 'anonymous@dutchx.com',
                 location: location,
                 area_name: 'Manual Entry',
                 session_id: sessionStartTime,
@@ -866,8 +708,8 @@
             
             const scanData = {
                 qr_content: decodedText,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
+                user_name: 'Anonymous User', // No sign-in required
+                user_email: 'anonymous@dutchx.com',
                 location: await locationPromise,
                 area_name: 'Camera Scan',
                 session_id: sessionStartTime,
@@ -968,11 +810,8 @@
             }
         }
 
-        // Initialize Google Auth on page load
+        // Auto-save manual entry on Enter key
         document.addEventListener('DOMContentLoaded', function() {
-            initializeGoogleAuth();
-
-            // Auto-save manual entry on Enter key
             document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     submitManualEntry();
