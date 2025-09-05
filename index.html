@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.3.0</title>
+    <title>QR Code Scanner & Logger v2.4.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -53,11 +53,11 @@
             color: #ffffff;
             margin-top: 15px;
             font-weight: bold;
-            background: linear-gradient(45deg, #28a745, #20c997);
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
             padding: 8px 20px;
             border-radius: 20px;
             display: inline-block;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
         }
         
         #qr-reader {
@@ -81,12 +81,12 @@
         
         .scan-success {
             border: 3px solid #28a745 !important;
-            animation: successPulse 0.5s ease-in-out;
+            animation: successPulse 0.3s ease-in-out;
         }
         
         @keyframes successPulse {
             0% { border-color: #28a745; }
-            50% { border-color: #20c997; box-shadow: 0 0 20px #28a745; }
+            50% { border-color: #20c997; box-shadow: 0 0 30px #28a745; }
             100% { border-color: #28a745; }
         }
         
@@ -307,7 +307,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>Scan QR codes and automatically log to Airtable</p>
-            <div class="version">Version 2.3.0</div>
+            <div class="version">Version 2.4.0</div>
         </div>
 
         <div class="user-info" id="user-info">
@@ -370,7 +370,7 @@
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
         let lastScanTime = 0;
-        const SCAN_COOLDOWN_MS = 200;
+        const SCAN_COOLDOWN_MS = 100; // Ultra-fast 0.1 second cooldown
         let torchEnabled = false;
 
         // Pre-configured Airtable credentials (replace with your actual values)
@@ -504,10 +504,12 @@
                 
                 html5QrCode = new Html5Qrcode("qr-reader");
                 
+                // MAXIMUM PERFORMANCE CONFIGURATION
                 const config_scan = {
-                    fps: 30,
+                    fps: 60, // Maximum possible FPS for instant detection
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        let minEdgePercentage = 0.8;
+                        // Aggressive full-screen scanning area
+                        let minEdgePercentage = 0.95; // 95% of screen
                         let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
                         let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
                         return {
@@ -516,49 +518,81 @@
                         };
                     },
                     aspectRatio: 1.0,
-                    disableFlip: false,
+                    disableFlip: false, // Scan both orientations
+                    verbose: false, // Reduce console overhead
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // QR only for speed
                     experimentalFeatures: {
                         useBarCodeDetectorIfSupported: true
-                    }
+                    },
+                    // Advanced scanning options
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+                    showTorchButtonIfSupported: true,
+                    showZoomSliderIfSupported: true,
+                    defaultZoomValueIfSupported: 1.5
                 };
 
+                // ULTRA HIGH-RESOLUTION CAMERA CONFIGURATION
                 const cameraConfig = { 
                     facingMode: "environment",
-                    width: { ideal: 1920, min: 640 },
-                    height: { ideal: 1080, min: 480 },
+                    // Request maximum resolution for crystal clear image
+                    width: { ideal: 4096, min: 1280 },
+                    height: { ideal: 2160, min: 720 },
+                    // Maximum quality settings
                     focusMode: "continuous",
-                    exposureMode: "continuous",
-                    whiteBalanceMode: "continuous"
+                    exposureMode: "continuous", 
+                    whiteBalanceMode: "continuous",
+                    // Advanced camera controls
+                    zoom: { ideal: 1.5, min: 1.0, max: 3.0 },
+                    frameRate: { ideal: 60, min: 30 }
                 };
 
                 await html5QrCode.start(
                     cameraConfig,
                     config_scan,
                     (decodedText) => onScanSuccess(decodedText),
-                    () => {}
+                    () => {} // Silent error handling for performance
                 );
 
                 isScanning = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('High-performance scanner active! (v2.3.0)', 'success');
+                showStatus('ULTRA-PERFORMANCE scanner active! (v2.4.0)', 'success');
 
             } catch (err) {
-                console.error("Camera error:", err);
+                console.error("High-performance camera error:", err);
                 
+                // FALLBACK 1: High-performance standard config
                 try {
-                    showStatus('Trying fallback configuration...', 'info');
+                    showStatus('Trying high-performance fallback...', 'info');
                     
-                    const basicConfig = {
-                        fps: 20,
-                        qrbox: { width: 250, height: 250 },
-                        aspectRatio: 1.0
+                    const highPerfConfig = {
+                        fps: 45,
+                        qrbox: function(viewfinderWidth, viewfinderHeight) {
+                            let qrboxSize = Math.min(viewfinderWidth, viewfinderHeight) * 0.85;
+                            return {
+                                width: qrboxSize,
+                                height: qrboxSize
+                            };
+                        },
+                        aspectRatio: 1.0,
+                        disableFlip: false,
+                        experimentalFeatures: {
+                            useBarCodeDetectorIfSupported: true
+                        }
+                    };
+
+                    const fallbackCamera = {
+                        facingMode: "environment",
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 },
+                        focusMode: "continuous",
+                        frameRate: { ideal: 45, min: 25 }
                     };
 
                     await html5QrCode.start(
-                        { facingMode: "environment" },
-                        basicConfig,
+                        fallbackCamera,
+                        highPerfConfig,
                         (decodedText) => onScanSuccess(decodedText),
                         () => {}
                     );
@@ -567,21 +601,47 @@
                     document.getElementById('start-btn').disabled = true;
                     document.getElementById('stop-btn').disabled = false;
                     document.getElementById('scanner-controls').style.display = 'flex';
-                    showStatus('Fallback scanner active!', 'success');
+                    showStatus('High-performance fallback active!', 'success');
 
                 } catch (fallbackErr) {
-                    if (err.name === 'NotAllowedError') {
-                        showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
-                    } else if (err.name === 'NotFoundError') {
-                        showStatus('No camera found. Please check your device.', 'error');
-                    } else if (err.name === 'NotReadableError') {
-                        showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
-                    } else {
-                        showStatus(`Camera error: ${err.message || err}`, 'error');
+                    // FALLBACK 2: Standard reliable config
+                    try {
+                        showStatus('Trying standard configuration...', 'info');
+                        
+                        const standardConfig = {
+                            fps: 30,
+                            qrbox: { width: 300, height: 300 },
+                            aspectRatio: 1.0
+                        };
+
+                        await html5QrCode.start(
+                            { facingMode: "environment" },
+                            standardConfig,
+                            (decodedText) => onScanSuccess(decodedText),
+                            () => {}
+                        );
+
+                        isScanning = true;
+                        document.getElementById('start-btn').disabled = true;
+                        document.getElementById('stop-btn').disabled = false;
+                        document.getElementById('scanner-controls').style.display = 'flex';
+                        showStatus('Standard scanner active!', 'success');
+
+                    } catch (finalErr) {
+                        // Handle all error types
+                        if (err.name === 'NotAllowedError') {
+                            showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+                        } else if (err.name === 'NotFoundError') {
+                            showStatus('No camera found. Please check your device.', 'error');
+                        } else if (err.name === 'NotReadableError') {
+                            showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
+                        } else {
+                            showStatus(`Camera error: ${err.message || err}`, 'error');
+                        }
+                        
+                        sessionStartTime = null;
+                        document.getElementById('session-info').style.display = 'none';
                     }
-                    
-                    sessionStartTime = null;
-                    document.getElementById('session-info').style.display = 'none';
                 }
             }
         }
@@ -768,4 +828,157 @@
             showStatus(`Manually logged: ${qrContent}`, 'success');
         }
 
-        async function onScanSuccess(deco
+        async function onScanSuccess(decodedText) {
+            console.log(`QR Code detected: ${decodedText}`);
+            
+            // Ultra-fast cooldown check
+            const now = Date.now();
+            if (now - lastScanTime < SCAN_COOLDOWN_MS) {
+                return; // Silent ignore for performance
+            }
+            lastScanTime = now;
+            
+            // IMMEDIATE MULTI-SENSORY FEEDBACK
+            const qrReader = document.getElementById('qr-reader');
+            qrReader.classList.add('scan-success');
+            
+            // Triple feedback for instant recognition
+            playSuccessSound();
+            vibrateFeedback();
+            
+            // Enhanced visual feedback
+            setTimeout(() => {
+                qrReader.classList.remove('scan-success');
+            }, 300); // Faster animation
+            
+            if (sessionScans.has(decodedText)) {
+                showStatus(`Already scanned "${decodedText}" in this session`, 'info');
+                return;
+            }
+            
+            sessionScans.add(decodedText);
+            sessionScanCount++;
+            updateSessionInfo();
+            resetSessionTimeout();
+            
+            // Parallel processing for speed
+            const locationPromise = getCurrentLocation();
+            
+            const scanData = {
+                qr_content: decodedText,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                location: await locationPromise,
+                area_name: 'Camera Scan',
+                session_id: sessionStartTime,
+                device_info: navigator.userAgent
+            };
+
+            // Parallel operations
+            addToScanLog(scanData);
+            sendToAirtable(scanData); // Don't await for speed
+            
+            showStatus(`Scanned: ${decodedText}`, 'success');
+        }
+
+        async function getCurrentLocation() {
+            return new Promise((resolve) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            resolve({
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude,
+                                accuracy: position.coords.accuracy
+                            });
+                        },
+                        (error) => {
+                            console.error("Geolocation error:", error);
+                            resolve({ error: "Location access denied" });
+                        },
+                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+                    );
+                } else {
+                    resolve({ error: "Geolocation not supported" });
+                }
+            });
+        }
+
+        async function sendToAirtable(scanData) {
+            const url = `https://api.airtable.com/v0/${config.baseId}/${encodeURIComponent(config.tableName)}`;
+            
+            const airtableRecord = {
+                fields: {
+                    "QR Content": scanData.qr_content,
+                    "User Name": scanData.user_name,
+                    "User Email": scanData.user_email,
+                    "Location": JSON.stringify(scanData.location),
+                    "Area Name": scanData.area_name,
+                    "Session ID": scanData.session_id,
+                    "Device Info": scanData.device_info
+                }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.airtableToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(airtableRecord)
+                });
+
+                if (response.ok) {
+                    console.log('Successfully sent to Airtable');
+                } else {
+                    const error = await response.text();
+                    console.error('Airtable error:', error);
+                    showStatus('Error logging to Airtable. Check your configuration.', 'error');
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                showStatus('Network error. Scan saved locally.', 'error');
+            }
+        }
+
+        function addToScanLog(scanData) {
+            scanLog.unshift(scanData);
+            if (scanLog.length > 10) scanLog.pop();
+
+            const logDiv = document.getElementById('scan-log');
+            logDiv.innerHTML = scanLog.map(scan => `
+                <div class="log-entry">
+                    <div class="timestamp">${new Date().toLocaleString()}</div>
+                    <div class="content"><strong>${scan.area_name}:</strong> ${scan.qr_content}</div>
+                </div>
+            `).join('');
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Initialize Google Auth on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeGoogleAuth();
+
+            // Auto-save manual entry on Enter key
+            document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    submitManualEntry();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
