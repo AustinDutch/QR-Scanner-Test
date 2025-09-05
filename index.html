@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Code Scanner & Logger</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/google-identity-services/1.0.0/index.js"></script>
     <style>
         * {
             margin: 0;
@@ -46,10 +46,6 @@
         .header p {
             color: #666;
             font-size: 1.1em;
-        }
-        
-        .scanner-section {
-            margin-bottom: 30px;
         }
         
         #qr-reader {
@@ -156,7 +152,7 @@
             color: #333;
         }
         
-        .form-group input, .form-group select {
+        .form-group input {
             width: 100%;
             padding: 10px;
             border: 2px solid #e0e0e0;
@@ -165,35 +161,9 @@
             transition: border-color 0.3s ease;
         }
         
-        .form-group input:focus, .form-group select:focus {
+        .form-group input:focus {
             outline: none;
             border-color: #667eea;
-        }
-        
-        .log-entry {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            text-align: left;
-        }
-        
-        .log-entry .timestamp {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .log-entry .content {
-            font-weight: 600;
-            color: #333;
-            word-break: break-all;
-        }
-        
-        .log-section {
-            max-height: 300px;
-            overflow-y: auto;
         }
         
         .user-info {
@@ -243,6 +213,41 @@
         .manual-input-row input:focus {
             outline: none;
             border-color: #667eea;
+        }
+        
+        .log-entry {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: left;
+        }
+        
+        .log-entry .timestamp {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .log-entry .content {
+            font-weight: 600;
+            color: #333;
+            word-break: break-all;
+        }
+        
+        .log-section {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .session-info {
+            background: #e8f4fd;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #0066cc;
         }
         
         @media (max-width: 480px) {
@@ -295,44 +300,13 @@
             <button class="btn" onclick="testAirtableConnection()">Test Connection</button>
         </div>
 
-        <div class="config-section">
-            <h3>🗺️ Site Geofencing</h3>
-            <div class="form-group">
-                <label for="sites-table">Sites Table Name:</label>
-                <input type="text" id="sites-table" value="Sites" placeholder="Sites">
-            </div>
-            <div class="form-group">
-                <label for="address-column">Address Column Name:</label>
-                <input type="text" id="address-column" value="Address" placeholder="Address">
-            </div>
-            <div class="form-group">
-                <label for="site-name-column">Site Name Column:</label>
-                <input type="text" id="site-name-column" value="Site Name" placeholder="Site Name">
-            </div>
-            <div id="sites-status" style="margin-top: 10px; font-size: 14px; color: #666;">
-                Geofences will auto-load from your Sites table
-            </div>
-            
-            <h4 style="margin-top: 20px;">Manual Geofences</h4>
-            <div id="geofences">
-                <!-- Manual geofences will be added here -->
-            </div>
-            <div class="controls">
-                <button class="btn" onclick="addGeofence()">Add Manual Geofence</button>
-                <button class="btn btn-secondary" onclick="clearGeofences()">Clear Manual</button>
-                <button class="btn" onclick="forceRefreshSites()" style="font-size: 12px; padding: 8px 16px;">Refresh Sites Now</button>
-            </div>
-        </div>
-
         <div class="user-info" id="user-info">
             <button class="btn" onclick="signInWithGoogle()">Sign in with Google</button>
         </div>
 
         <div class="session-info" id="session-info" style="display: none;">
-            <div class="status info">
-                <strong>Session Active:</strong> <span id="session-time">00:00</span> | 
-                <strong>Unique Scans:</strong> <span id="session-count">0</span>
-            </div>
+            <strong>Session Active:</strong> <span id="session-time">00:00</span> | 
+            <strong>Unique Scans:</strong> <span id="session-count">0</span>
         </div>
 
         <div class="scanner-section">
@@ -365,13 +339,11 @@
         let isScanning = false;
         let currentUser = null;
         let scanLog = [];
-        let geofences = [];
         let sessionScans = new Set();
         let sessionStartTime = null;
         let sessionTimeout = null;
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
-        const SITES_REFRESH_DAYS = 30;
 
         // Configuration
         const config = {
@@ -380,56 +352,22 @@
             tableName: 'QR Scans'
         };
 
-        // Initialize Google Identity
-        function initializeGoogleAuth() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                google.accounts.id.initialize({
-                    client_id: 'your-google-client-id.googleusercontent.com',
-                    callback: handleCredentialResponse
-                });
-            }
-        }
-
         function signInWithGoogle() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                google.accounts.id.prompt();
-            } else {
-                const email = prompt("Please enter your @dutchx.com email:");
-                if (email) {
-                    const emailDomain = email.split('@')[1];
-                    if (emailDomain !== 'dutchx.com') {
-                        showStatus(`❌ Access denied. Only @dutchx.com emails are allowed.`, 'error');
-                        return;
-                    }
-                    
-                    const name = prompt("Please enter your full name:");
-                    if (name) {
-                        currentUser = { name: name, email: email };
-                        updateUserInfo();
-                        showStatus(`✅ Welcome, ${name}!`, 'success');
-                    }
+            const email = prompt("Please enter your @dutchx.com email:");
+            if (email) {
+                const emailDomain = email.split('@')[1];
+                if (emailDomain !== 'dutchx.com') {
+                    showStatus(`❌ Access denied. Only @dutchx.com emails are allowed.`, 'error');
+                    return;
+                }
+                
+                const name = prompt("Please enter your full name:");
+                if (name) {
+                    currentUser = { name: name, email: email };
+                    updateUserInfo();
+                    showStatus(`✅ Welcome, ${name}!`, 'success');
                 }
             }
-        }
-
-        function handleCredentialResponse(response) {
-            const payload = JSON.parse(atob(response.credential.split('.')[1]));
-            
-            const emailDomain = payload.email.split('@')[1];
-            if (emailDomain !== 'dutchx.com') {
-                showStatus(`❌ Access denied. Only @dutchx.com emails are allowed.`, 'error');
-                currentUser = null;
-                updateUserInfo();
-                return;
-            }
-            
-            currentUser = {
-                name: payload.name,
-                email: payload.email,
-                picture: payload.picture
-            };
-            updateUserInfo();
-            showStatus(`✅ Welcome, ${payload.name}!`, 'success');
         }
 
         function updateUserInfo() {
@@ -465,24 +403,11 @@
             const config_scan = {
                 fps: 20,
                 qrbox: { width: 300, height: 300 },
-                aspectRatio: 1.0,
-                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-                showTorchButtonIfSupported: true,
-                showZoomSliderIfSupported: true,
-                defaultZoomValueIfSupported: 2,
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true
-                }
+                aspectRatio: 1.0
             };
 
             html5QrCode.start(
-                { 
-                    facingMode: "environment",
-                    advanced: [
-                        { torch: false },
-                        { zoom: 2.0 }
-                    ]
-                },
+                { facingMode: "environment" },
                 config_scan,
                 onScanSuccess,
                 onScanFailure
@@ -570,14 +495,13 @@
             resetSessionTimeout();
             
             const location = await getCurrentLocation();
-            const geofencedArea = getGeofencedArea(location);
             
             const scanData = {
                 qr_content: qrContent,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
                 location: location,
-                area_name: geofencedArea,
+                area_name: 'Manual Entry',
                 session_id: sessionStartTime,
                 device_info: navigator.userAgent + ' (Manual Entry)'
             };
@@ -586,7 +510,7 @@
             await sendToAirtable(scanData);
             
             manualInput.value = '';
-            showStatus(`✅ Manually logged in ${scanData.area_name}: ${qrContent}`, 'success');
+            showStatus(`✅ Manually logged: ${qrContent}`, 'success');
         }
 
         async function onScanSuccess(decodedText, decodedResult) {
@@ -606,14 +530,13 @@
             resetSessionTimeout();
             
             const location = await getCurrentLocation();
-            const geofencedArea = getGeofencedArea(location);
             
             const scanData = {
                 qr_content: decodedText,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
                 location: location,
-                area_name: geofencedArea,
+                area_name: 'Camera Scan',
                 session_id: sessionStartTime,
                 device_info: navigator.userAgent
             };
@@ -621,7 +544,7 @@
             addToScanLog(scanData);
             await sendToAirtable(scanData);
             
-            showStatus(`✅ Scanned in ${scanData.area_name}: ${decodedText}`, 'success');
+            showStatus(`✅ Scanned: ${decodedText}`, 'success');
         }
 
         function onScanFailure(error) {
@@ -722,151 +645,60 @@
             }
         }
 
-        async function autoLoadSitesIfNeeded() {
-            if (!config.airtableToken || !config.baseId) {
-                return;
-            }
+        function addToScanLog(scanData) {
+            scanLog.unshift(scanData);
+            if (scanLog.length > 10) scanLog.pop();
 
-            const lastRefresh = localStorage.getItem('sites-last-refresh');
-            const now = new Date().getTime();
-            const daysSinceRefresh = lastRefresh ? (now - parseInt(lastRefresh)) / (1000 * 60 * 60 * 24) : 999;
-
-            if (daysSinceRefresh >= SITES_REFRESH_DAYS) {
-                console.log('Auto-refreshing sites from Airtable...');
-                await loadSitesFromAirtable(true);
-            } else {
-                loadGeofences();
-                const sitesCount = geofences.filter(g => g.autoGenerated).length;
-                if (sitesCount > 0) {
-                    updateSitesStatus(`✅ Using ${sitesCount} cached site geofences`);
-                }
-            }
+            const logDiv = document.getElementById('scan-log');
+            logDiv.innerHTML = scanLog.map(scan => `
+                <div class="log-entry">
+                    <div class="timestamp">${new Date().toLocaleString()}</div>
+                    <div class="content"><strong>${scan.area_name}:</strong> ${scan.qr_content}</div>
+                </div>
+            `).join('');
         }
 
-        async function forceRefreshSites() {
-            await loadSitesFromAirtable(false);
-        }
-
-        function updateSitesStatus(message) {
-            const statusDiv = document.getElementById('sites-status');
-            statusDiv.innerHTML = message;
-        }
-
-        async function loadSitesFromAirtable(silentMode = false) {
-            const sitesTable = document.getElementById('sites-table').value || 'Sites';
-            const addressColumn = document.getElementById('address-column').value || 'Address';
-            const siteNameColumn = document.getElementById('site-name-column').value || 'Site Name';
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
             
-            if (!config.airtableToken || !config.baseId) {
-                if (!silentMode) {
-                    showStatus('Please configure Airtable settings first!', 'error');
-                }
-                return;
-            }
-
-            if (!silentMode) {
-                updateSitesStatus('🔄 Loading sites from Airtable...');
-            }
-
-            try {
-                const url = `https://api.airtable.com/v0/${config.baseId}/${encodeURIComponent(sitesTable)}`;
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${config.airtableToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Airtable API error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const sites = data.records;
-
-                if (sites.length === 0) {
-                    updateSitesStatus('⚠️ No sites found in table');
-                    return;
-                }
-
-                if (!silentMode) {
-                    updateSitesStatus(`🗺️ Geocoding ${sites.length} sites...`);
-                }
-
-                geofences = geofences.filter(g => !g.autoGenerated);
-
-                let geocoded = 0;
-                for (const site of sites) {
-                    const address = site.fields[addressColumn];
-                    const siteName = site.fields[siteNameColumn];
-
-                    if (address && siteName) {
-                        try {
-                            const coords = await geocodeAddress(address);
-                            if (coords) {
-                                geofences.push({
-                                    name: siteName,
-                                    latitude: coords.lat,
-                                    longitude: coords.lng,
-                                    radius: 500,
-                                    autoGenerated: true
-                                });
-                                geocoded++;
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to geocode ${address}:`, error);
-                        }
-                        
-                        await new Promise(resolve => setTimeout(resolve, 200));
-                    }
-                }
-
-                saveGeofences();
-                localStorage.setItem('sites-last-refresh', new Date().getTime().toString());
-                
-                const message = `✅ ${geocoded} site geofences loaded`;
-                updateSitesStatus(message);
-                
-                if (!silentMode) {
-                    showStatus(message, 'success');
-                }
-
-            } catch (error) {
-                console.error('Error loading sites:', error);
-                const errorMsg = '❌ Error loading sites';
-                updateSitesStatus(errorMsg);
-                if (!silentMode) {
-                    showStatus('Error loading sites from Airtable', 'error');
-                }
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
             }
         }
 
-        async function geocodeAddress(address) {
-            try {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.length > 0) {
-                    return {
-                        lat: parseFloat(data[0].lat),
-                        lng: parseFloat(data[0].lon)
-                    };
-                }
-                return null;
-            } catch (error) {
-                console.error('Geocoding error:', error);
-                return null;
-            }
-        }
-
-        function addGeofence() {
-            const geofenceDiv = document.getElementById('geofences');
-            const index = geofences.length;
+        // Auto-save config changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const storedToken = localStorage.getItem('airtable-token');
+            const storedBaseId = localStorage.getItem('base-id');
+            const storedTableName = localStorage.getItem('table-name');
             
-            const geofenceHTML = `
-                <div class="geofence-item" data-index="${index}">
-                    <div class="form-group">
-                        <label>Area Name:</label>
-                        <input type="text" class="area-name" placeholder="e.g., Spring" onchange="updateGeofence(${index})">
-                    </div>
-                    <div style="display:
+            if (storedToken) document.getElementById('airtable-token').value = storedToken;
+            if (storedBaseId) document.getElementById('base-id').value = storedBaseId;
+            if (storedTableName) document.getElementById('table-name').value = storedTableName;
+
+            // Allow Enter key to submit manual entry
+            document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    submitManualEntry();
+                }
+            });
+
+            // Auto-save config changes
+            document.getElementById('airtable-token').addEventListener('change', (e) => {
+                localStorage.setItem('airtable-token', e.target.value);
+            });
+            document.getElementById('base-id').addEventListener('change', (e) => {
+                localStorage.setItem('base-id', e.target.value);
+            });
+            document.getElementById('table-name').addEventListener('change', (e) => {
+                localStorage.setItem('table-name', e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
