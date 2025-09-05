@@ -331,8 +331,8 @@
 
         // Pre-configured Airtable credentials - REPLACE THESE WITH YOUR VALUES
         const config = {
-            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b',
-            baseId: 'appt0JKW1vqQNEECo', 
+            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b'
+            baseId: 'appt0JKW1vqQNEECo'
             tableName: 'QR Scans'
         };
 
@@ -350,12 +350,12 @@
                 
                 html5QrCode = new Html5Qrcode("qr-reader");
                 
-                // MAXIMUM PERFORMANCE CONFIGURATION
+                // SIMPLIFIED HIGH-PERFORMANCE CONFIGURATION (avoiding the error)
                 const config_scan = {
-                    fps: 60, // Maximum possible FPS for instant detection
+                    fps: 30, // High but stable FPS
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
-                        // Aggressive full-screen scanning area
-                        let minEdgePercentage = 0.95; // 95% of screen
+                        // Dynamic scan area - 80% of smallest dimension
+                        let minEdgePercentage = 0.8;
                         let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
                         let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
                         return {
@@ -364,81 +364,46 @@
                         };
                     },
                     aspectRatio: 1.0,
-                    disableFlip: false, // Scan both orientations
-                    verbose: false, // Reduce console overhead
-                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], // QR only for speed
+                    disableFlip: false,
                     experimentalFeatures: {
                         useBarCodeDetectorIfSupported: true
-                    },
-                    // Advanced scanning options
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-                    showTorchButtonIfSupported: true,
-                    showZoomSliderIfSupported: true,
-                    defaultZoomValueIfSupported: 1.5
+                    }
                 };
 
-                // ULTRA HIGH-RESOLUTION CAMERA CONFIGURATION
+                // SIMPLIFIED CAMERA CONFIGURATION (avoiding complex constraints)
                 const cameraConfig = { 
-                    facingMode: "environment",
-                    // Request maximum resolution for crystal clear image
-                    width: { ideal: 4096, min: 1280 },
-                    height: { ideal: 2160, min: 720 },
-                    // Maximum quality settings
-                    focusMode: "continuous",
-                    exposureMode: "continuous", 
-                    whiteBalanceMode: "continuous",
-                    // Advanced camera controls
-                    zoom: { ideal: 1.5, min: 1.0, max: 3.0 },
-                    frameRate: { ideal: 60, min: 30 }
+                    facingMode: "environment"
                 };
 
                 await html5QrCode.start(
                     cameraConfig,
                     config_scan,
                     (decodedText) => onScanSuccess(decodedText),
-                    () => {} // Silent error handling for performance
+                    () => {} // Silent error handling
                 );
 
                 isScanning = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('ULTRA-PERFORMANCE scanner active! (v2.5.0)', 'success');
+                showStatus('High-performance scanner active! (v2.5.1)', 'success');
 
             } catch (err) {
-                console.error("High-performance camera error:", err);
+                console.error("Camera error:", err);
                 
-                // FALLBACK 1: High-performance standard config
+                // SINGLE RELIABLE FALLBACK
                 try {
-                    showStatus('Trying high-performance fallback...', 'info');
+                    showStatus('Trying reliable configuration...', 'info');
                     
-                    const highPerfConfig = {
-                        fps: 45,
-                        qrbox: function(viewfinderWidth, viewfinderHeight) {
-                            let qrboxSize = Math.min(viewfinderWidth, viewfinderHeight) * 0.85;
-                            return {
-                                width: qrboxSize,
-                                height: qrboxSize
-                            };
-                        },
-                        aspectRatio: 1.0,
-                        disableFlip: false,
-                        experimentalFeatures: {
-                            useBarCodeDetectorIfSupported: true
-                        }
-                    };
-
-                    const fallbackCamera = {
-                        facingMode: "environment",
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        focusMode: "continuous",
-                        frameRate: { ideal: 45, min: 25 }
+                    const basicConfig = {
+                        fps: 20,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0
                     };
 
                     await html5QrCode.start(
-                        fallbackCamera,
-                        highPerfConfig,
+                        { facingMode: "environment" },
+                        basicConfig,
                         (decodedText) => onScanSuccess(decodedText),
                         () => {}
                     );
@@ -447,47 +412,22 @@
                     document.getElementById('start-btn').disabled = true;
                     document.getElementById('stop-btn').disabled = false;
                     document.getElementById('scanner-controls').style.display = 'flex';
-                    showStatus('High-performance fallback active!', 'success');
+                    showStatus('Reliable scanner active!', 'success');
 
                 } catch (fallbackErr) {
-                    // FALLBACK 2: Standard reliable config
-                    try {
-                        showStatus('Trying standard configuration...', 'info');
-                        
-                        const standardConfig = {
-                            fps: 30,
-                            qrbox: { width: 300, height: 300 },
-                            aspectRatio: 1.0
-                        };
-
-                        await html5QrCode.start(
-                            { facingMode: "environment" },
-                            standardConfig,
-                            (decodedText) => onScanSuccess(decodedText),
-                            () => {}
-                        );
-
-                        isScanning = true;
-                        document.getElementById('start-btn').disabled = true;
-                        document.getElementById('stop-btn').disabled = false;
-                        document.getElementById('scanner-controls').style.display = 'flex';
-                        showStatus('Standard scanner active!', 'success');
-
-                    } catch (finalErr) {
-                        // Handle all error types
-                        if (err.name === 'NotAllowedError') {
-                            showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
-                        } else if (err.name === 'NotFoundError') {
-                            showStatus('No camera found. Please check your device.', 'error');
-                        } else if (err.name === 'NotReadableError') {
-                            showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
-                        } else {
-                            showStatus(`Camera error: ${err.message || err}`, 'error');
-                        }
-                        
-                        sessionStartTime = null;
-                        document.getElementById('session-info').style.display = 'none';
+                    // Handle all error types
+                    if (err.name === 'NotAllowedError') {
+                        showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
+                    } else if (err.name === 'NotFoundError') {
+                        showStatus('No camera found. Please check your device.', 'error');
+                    } else if (err.name === 'NotReadableError') {
+                        showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
+                    } else {
+                        showStatus(`Camera error: ${err.message || err}`, 'error');
                     }
+                    
+                    sessionStartTime = null;
+                    document.getElementById('session-info').style.display = 'none';
                 }
             }
         }
