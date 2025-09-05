@@ -48,15 +48,14 @@
         }
         
         .version {
-            font-size: 16px;
-            color: #ffffff;
-            margin-top: 15px;
+            font-size: 14px;
+            color: #007acc;
+            margin-top: 10px;
             font-weight: bold;
-            background: linear-gradient(45deg, #28a745, #20c997);
-            padding: 8px 20px;
-            border-radius: 20px;
+            background: #e8f4fd;
+            padding: 5px 15px;
+            border-radius: 15px;
             display: inline-block;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
         }
         
         #qr-reader {
@@ -76,6 +75,16 @@
         
         #qr-reader canvas {
             max-width: 100% !important;
+        }
+        
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 10;
         }
         
         .scan-success {
@@ -396,7 +405,7 @@
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
         let lastScanTime = 0;
-        const SCAN_COOLDOWN_MS = 200;
+        const SCAN_COOLDOWN_MS = 200; // Reduced to 0.2 seconds for faster re-scanning
         let torchEnabled = false;
 
         const config = {
@@ -456,9 +465,11 @@
                 
                 html5QrCode = new Html5Qrcode("qr-reader");
                 
+                // High-performance scanning configuration
                 const config_scan = {
-                    fps: 30,
+                    fps: 30, // Increased to 30 for faster detection
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
+                        // Dynamic scan area - 80% of smallest dimension
                         let minEdgePercentage = 0.8;
                         let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
                         let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
@@ -468,12 +479,13 @@
                         };
                     },
                     aspectRatio: 1.0,
-                    disableFlip: false,
+                    disableFlip: false, // Allow both normal and flipped detection
                     experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
+                        useBarCodeDetectorIfSupported: true // Use native browser detection
                     }
                 };
 
+                // High-resolution camera constraints for better detection
                 const cameraConfig = { 
                     facingMode: "environment",
                     width: { ideal: 1920, min: 640 },
@@ -487,7 +499,9 @@
                     cameraConfig,
                     config_scan,
                     (decodedText) => onScanSuccess(decodedText),
-                    () => {}
+                    (errorMessage) => {
+                        // Completely silent - no console spam
+                    }
                 );
 
                 isScanning = true;
@@ -499,6 +513,7 @@
             } catch (err) {
                 console.error("Camera error:", err);
                 
+                // Fallback to basic config if high-res fails
                 try {
                     showStatus('Trying fallback configuration...', 'info');
                     
@@ -522,6 +537,7 @@
                     showStatus('Fallback scanner active!', 'success');
 
                 } catch (fallbackErr) {
+                    // Specific error handling
                     if (err.name === 'NotAllowedError') {
                         showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
                     } else if (err.name === 'NotFoundError') {
@@ -532,6 +548,7 @@
                         showStatus(`Camera error: ${err.message || err}`, 'error');
                     }
                     
+                    // Reset session if camera fails
                     sessionStartTime = null;
                     document.getElementById('session-info').style.display = 'none';
                 }
@@ -730,12 +747,14 @@
             }
             lastScanTime = now;
             
+            // Immediate visual feedback
             const qrReader = document.getElementById('qr-reader');
             qrReader.classList.add('scan-success');
             setTimeout(() => {
                 qrReader.classList.remove('scan-success');
             }, 500);
             
+            // Immediate audio/haptic feedback
             playSuccessSound();
             vibrateFeedback();
             
@@ -886,3 +905,32 @@
                 }, 3000);
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const storedToken = localStorage.getItem('airtable-token');
+            const storedBaseId = localStorage.getItem('base-id');
+            const storedTableName = localStorage.getItem('table-name');
+            
+            if (storedToken) document.getElementById('airtable-token').value = storedToken;
+            if (storedBaseId) document.getElementById('base-id').value = storedBaseId;
+            if (storedTableName) document.getElementById('table-name').value = storedTableName;
+
+            document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    submitManualEntry();
+                }
+            });
+
+            document.getElementById('airtable-token').addEventListener('change', (e) => {
+                localStorage.setItem('airtable-token', e.target.value);
+            });
+            document.getElementById('base-id').addEventListener('change', (e) => {
+                localStorage.setItem('base-id', e.target.value);
+            });
+            document.getElementById('table-name').addEventListener('change', (e) => {
+                localStorage.setItem('table-name', e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
