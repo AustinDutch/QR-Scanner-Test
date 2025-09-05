@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger</title>
+    <title>QR Code Scanner & Logger v2.1.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         * {
@@ -47,6 +47,13 @@
             font-size: 1.1em;
         }
         
+        .version {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        
         #qr-reader {
             border: 3px dashed #667eea;
             border-radius: 15px;
@@ -71,6 +78,27 @@
             justify-content: center;
             margin: 20px 0;
             flex-wrap: wrap;
+        }
+        
+        .scanner-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        .scanner-controls .btn {
+            font-size: 14px;
+            padding: 8px 16px;
+        }
+        
+        .torch-btn {
+            background: linear-gradient(45deg, #ff9800, #ff5722);
+        }
+        
+        .focus-btn {
+            background: linear-gradient(45deg, #4caf50, #45a049);
         }
         
         .btn {
@@ -278,12 +306,13 @@
     <div class="container">
         <div class="header">
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
-            <h1>📱 QR Scanner</h1>
+            <h1>QR Scanner</h1>
             <p>Scan QR codes and automatically log to Airtable</p>
+            <div class="version">Version 2.1.0</div>
         </div>
 
         <div class="config-section">
-            <h3>⚙️ Airtable Configuration</h3>
+            <h3>Airtable Configuration</h3>
             <div class="form-group">
                 <label for="airtable-token">Airtable Personal Access Token:</label>
                 <input type="password" id="airtable-token" placeholder="pat...">
@@ -315,8 +344,14 @@
                 <button class="btn btn-secondary" id="stop-btn" onclick="stopScanning()" disabled>Stop Scanner</button>
             </div>
             
+            <div class="scanner-controls" id="scanner-controls" style="display: none;">
+                <button class="btn torch-btn" id="torch-btn" onclick="toggleTorch()">Flashlight</button>
+                <button class="btn focus-btn" onclick="triggerAutoFocus()">Focus</button>
+                <button class="btn" onclick="switchCamera()">Switch Camera</button>
+            </div>
+            
             <div class="manual-entry-section">
-                <h3>📝 Manual Entry</h3>
+                <h3>Manual Entry</h3>
                 <p>Can't scan the QR code? Enter the content manually:</p>
                 <div class="manual-input-row">
                     <input type="text" id="manual-qr-input" placeholder="Enter QR code content here...">
@@ -328,7 +363,7 @@
         <div id="status" class="status" style="display: none;"></div>
 
         <div class="log-section">
-            <h3>📋 Recent Scans</h3>
+            <h3>Recent Scans</h3>
             <div id="scan-log"></div>
         </div>
     </div>
@@ -343,8 +378,10 @@
         let sessionTimeout = null;
         let sessionScanCount = 0;
         const SESSION_TIMEOUT_MINUTES = 15;
+        let lastScanTime = 0;
+        const SCAN_COOLDOWN_MS = 500;
+        let torchEnabled = false;
 
-        // Configuration
         const config = {
             airtableToken: '',
             baseId: '',
@@ -356,7 +393,7 @@
             if (email) {
                 const emailDomain = email.split('@')[1];
                 if (emailDomain !== 'dutchx.com') {
-                    showStatus(`❌ Access denied. Only @dutchx.com emails are allowed.`, 'error');
+                    showStatus('Access denied. Only @dutchx.com emails are allowed.', 'error');
                     return;
                 }
                 
@@ -364,7 +401,7 @@
                 if (name) {
                     currentUser = { name: name, email: email };
                     updateUserInfo();
-                    showStatus(`✅ Welcome, ${name}!`, 'success');
+                    showStatus(`Welcome, ${name}!`, 'success');
                 }
             }
         }
@@ -378,7 +415,7 @@
             }
         }
 
-        function startScanning() {
+        async function startScanning() {
             if (!config.airtableToken || !config.baseId) {
                 showStatus('Please configure Airtable settings first!', 'error');
                 return;
@@ -394,31 +431,45 @@
             sessionScanCount = 0;
             updateSessionInfo();
             document.getElementById('session-info').style.display = 'block';
+            document.getElementById('scanner-controls').style.display = 'flex';
             
             resetSessionTimeout();
 
-            html5QrCode = new Html5Qrcode("qr-reader");
-            
-            const config_scan = {
-                fps: 20,
-                qrbox: { width: 300, height: 300 },
-                aspectRatio: 1.0
-            };
+            try {
+                html5QrCode = new Html5Qrcode("qr-reader");
+                
+                const config_scan = {
+                    fps: 30,
+                    qrbox: { width: 350, height: 350 },
+                    aspectRatio: 1.0,
+                    showTorchButtonIfSupported: true,
+                    showZoomSliderIfSupported: true,
+                    defaultZoomValueIfSupported: 2
+                };
 
-            html5QrCode.start(
-                { facingMode: "environment" },
-                config_scan,
-                onScanSuccess,
-                onScanFailure
-            ).then(() => {
+                await html5QrCode.start(
+                    { 
+                        facingMode: "environment",
+                        advanced: [
+                            { focusMode: "continuous" },
+                            { torch: false },
+                            { zoom: 2.0 }
+                        ]
+                    },
+                    config_scan,
+                    (decodedText) => onScanSuccess(decodedText),
+                    () => {}
+                );
+
                 isScanning = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
-                showStatus('Scanner started! Point camera at QR code', 'info');
-            }).catch(err => {
+                showStatus('Enhanced scanner started! (v2.1.0)', 'info');
+
+            } catch (err) {
                 console.error("Error starting scanner:", err);
                 showStatus('Error starting scanner. Please check camera permissions.', 'error');
-            });
+            }
         }
 
         function stopScanning() {
@@ -428,6 +479,7 @@
                     document.getElementById('start-btn').disabled = false;
                     document.getElementById('stop-btn').disabled = true;
                     document.getElementById('session-info').style.display = 'none';
+                    document.getElementById('scanner-controls').style.display = 'none';
                     clearTimeout(sessionTimeout);
                     showStatus(`Scanner stopped. Session completed: ${sessionScanCount} unique scans`, 'info');
                 }).catch(err => {
@@ -436,12 +488,103 @@
             }
         }
 
+        async function toggleTorch() {
+            try {
+                const video = document.querySelector('#qr-reader video');
+                if (!video || !video.srcObject) {
+                    showStatus('Camera not active', 'error');
+                    return;
+                }
+
+                const track = video.srcObject.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    torchEnabled = !torchEnabled;
+                    await track.applyConstraints({
+                        advanced: [{ torch: torchEnabled }]
+                    });
+                    
+                    const torchBtn = document.getElementById('torch-btn');
+                    torchBtn.textContent = torchEnabled ? 'Flashlight ON' : 'Flashlight';
+                    torchBtn.style.background = torchEnabled ? 
+                        'linear-gradient(45deg, #ffeb3b, #ffc107)' : 
+                        'linear-gradient(45deg, #ff9800, #ff5722)';
+                    
+                    showStatus(`Flashlight ${torchEnabled ? 'ON' : 'OFF'}`, 'info');
+                } else {
+                    showStatus('Flashlight not supported on this device', 'info');
+                }
+            } catch (error) {
+                console.error('Torch error:', error);
+                showStatus('Could not toggle flashlight', 'error');
+            }
+        }
+
+        async function triggerAutoFocus() {
+            try {
+                const video = document.querySelector('#qr-reader video');
+                if (!video || !video.srcObject) {
+                    showStatus('Camera not active', 'error');
+                    return;
+                }
+
+                const track = video.srcObject.getVideoTracks()[0];
+                await track.applyConstraints({
+                    advanced: [{ focusMode: "single-shot" }]
+                });
+                
+                showStatus('Auto-focus triggered', 'info');
+                
+                setTimeout(() => {
+                    track.applyConstraints({
+                        advanced: [{ focusMode: "continuous" }]
+                    }).catch(() => {});
+                }, 1000);
+            } catch (error) {
+                console.error('Focus error:', error);
+                showStatus('Focus adjustment not supported', 'info');
+            }
+        }
+
+        function switchCamera() {
+            showStatus('Camera switching not implemented yet', 'info');
+        }
+
+        function playSuccessSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (error) {
+                console.log('Audio feedback not supported');
+            }
+        }
+
+        function vibrateFeedback() {
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+        }
+
         function resetSessionTimeout() {
             clearTimeout(sessionTimeout);
             sessionTimeout = setTimeout(() => {
                 if (isScanning) {
                     stopScanning();
-                    showStatus(`⏰ Session timed out after ${SESSION_TIMEOUT_MINUTES} minutes of inactivity`, 'info');
+                    showStatus(`Session timed out after ${SESSION_TIMEOUT_MINUTES} minutes of inactivity`, 'info');
                 }
             }, SESSION_TIMEOUT_MINUTES * 60 * 1000);
         }
@@ -474,11 +617,8 @@
             }
             
             if (sessionStartTime && sessionScans.has(qrContent)) {
-                const allowDuplicate = confirm(`You've already logged "${qrContent}" in this session. Log again?`);
-                if (!allowDuplicate) {
-                    showStatus(`⚠️ Duplicate entry blocked: ${qrContent}`, 'info');
-                    return;
-                }
+                showStatus(`Already logged "${qrContent}" in this session`, 'info');
+                return;
             }
             
             if (!sessionStartTime) {
@@ -509,13 +649,14 @@
             await sendToAirtable(scanData);
             
             manualInput.value = '';
-            showStatus(`✅ Manually logged: ${qrContent}`, 'success');
+            playSuccessSound();
+            vibrateFeedback();
+            showStatus(`Manually logged: ${qrContent}`, 'success');
         }
 
         async function onScanSuccess(decodedText) {
             console.log(`QR Code detected: ${decodedText}`);
             
-            // Prevent rapid multiple scans
             const now = Date.now();
             if (now - lastScanTime < SCAN_COOLDOWN_MS) {
                 console.log('Scan ignored - cooldown period');
@@ -523,13 +664,11 @@
             }
             lastScanTime = now;
             
-            // Immediate feedback
-            vibrateFeedback();
             playSuccessSound();
+            vibrateFeedback();
             
-            // Check for duplicates in session
             if (sessionScans.has(decodedText)) {
-                showStatus(`⚠️ Already scanned "${decodedText}" in this session`, 'info');
+                showStatus(`Already scanned "${decodedText}" in this session`, 'info');
                 return;
             }
             
@@ -553,11 +692,7 @@
             addToScanLog(scanData);
             await sendToAirtable(scanData);
             
-            showStatus(`✅ Scanned: ${decodedText}`, 'success');
-        }
-
-        function onScanFailure(error) {
-            // Silent failure for scanning attempts
+            showStatus(`Scanned: ${decodedText}`, 'success');
         }
 
         async function getCurrentLocation() {
@@ -645,12 +780,12 @@
                 });
 
                 if (response.ok) {
-                    showStatus('✅ Airtable connection successful!', 'success');
+                    showStatus('Airtable connection successful!', 'success');
                 } else {
-                    showStatus('❌ Airtable connection failed. Check your credentials.', 'error');
+                    showStatus('Airtable connection failed. Check your credentials.', 'error');
                 }
             } catch (error) {
-                showStatus('❌ Network error testing connection', 'error');
+                showStatus('Network error testing connection', 'error');
             }
         }
 
@@ -680,7 +815,6 @@
             }
         }
 
-        // Auto-save config changes
         document.addEventListener('DOMContentLoaded', function() {
             const storedToken = localStorage.getItem('airtable-token');
             const storedBaseId = localStorage.getItem('base-id');
@@ -690,14 +824,12 @@
             if (storedBaseId) document.getElementById('base-id').value = storedBaseId;
             if (storedTableName) document.getElementById('table-name').value = storedTableName;
 
-            // Allow Enter key to submit manual entry
             document.getElementById('manual-qr-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     submitManualEntry();
                 }
             });
 
-            // Auto-save config changes
             document.getElementById('airtable-token').addEventListener('change', (e) => {
                 localStorage.setItem('airtable-token', e.target.value);
             });
