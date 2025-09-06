@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.6.0</title>
-    <script src="https://unpkg.com/@zxing/browser@latest"></script>
+    <title>QR Code Scanner & Logger v2.7.0</title>
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -70,15 +70,8 @@
             border: 3px dashed #667eea;
             border-radius: 15px;
             margin: 20px 0;
-            overflow: hidden;
-            min-height: 350px;
-            position: relative;
-        }
-        
-        #qr-reader video {
-            width: 100% !important;
-            height: auto !important;
             object-fit: cover;
+            position: relative;
         }
         
         .scan-success {
@@ -280,7 +273,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with automatic Airtable logging</p>
-            <div class="version">Version 2.6.0 - Fixed ZXing Implementation</div>
+            <div class="version">Version 2.7.0 - Final Working ZXing</div>
         </div>
 
         <div class="scanner-status">
@@ -293,7 +286,7 @@
         </div>
 
         <div class="scanner-section">
-           <video id="qr-reader" autoplay muted playsinline></video>
+            <video id="qr-reader" autoplay muted playsinline style="width: 100%; max-width: 400px; height: 300px; border: 3px dashed #667eea; border-radius: 15px; object-fit: cover;"></video>
             <div class="controls">
                 <button class="btn" id="start-btn" onclick="startScanning()">Start Scanner</button>
                 <button class="btn btn-secondary" id="stop-btn" onclick="stopScanning()" disabled>Stop Scanner</button>
@@ -337,8 +330,8 @@
             email: 'scanner@dutchx.com'
         };
 
-        // ZXing scanner variables with correct API
-        let controls;
+        // ZXing scanner variables
+        let codeReader;
         let isScanning = false;
         let scanLog = [];
         let sessionScans = new Set();
@@ -368,9 +361,9 @@
             try {
                 showStatus('Starting ZXing scanner...', 'info');
                 
-                // THE KEY FIX: Use correct static method call
-                const videoInputDevices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-                const codeReader = new ZXingBrowser.BrowserQRCodeReader();
+                // Use the ZXing.library API
+                codeReader = new ZXing.BrowserQRCodeReader();
+                const videoInputDevices = await codeReader.listVideoInputDevices();
                 
                 // Select back camera if available
                 let selectedDeviceId = videoInputDevices[0]?.deviceId;
@@ -383,18 +376,15 @@
                     if (backCamera) selectedDeviceId = backCamera.deviceId;
                 }
 
-                // Start ZXing decoding with correct API
-                controls = await codeReader.decodeFromVideoDevice(
+                // Start ZXing decoding
+                const result = await codeReader.decodeFromVideoDevice(
                     selectedDeviceId, 
                     'qr-reader', 
                     (result, error) => {
                         if (result) {
                             onScanSuccess(result.text);
                         }
-                        // Ignore NotFoundException - normal when no QR visible
-                        if (error && !(error instanceof ZXing.NotFoundException)) {
-                            console.log('ZXing error:', error);
-                        }
+                        // Ignore scanning errors - normal when no QR visible
                     }
                 );
 
@@ -402,7 +392,7 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('ZXing scanner active! Point at QR codes (v2.6.0)', 'success');
+                showStatus('ZXing scanner active! Point at QR codes (v2.7.0)', 'success');
 
             } catch (err) {
                 console.error("ZXing scanner error:", err);
@@ -423,10 +413,10 @@
         }
 
         function stopScanning() {
-            if (controls && isScanning) {
-                // Use the correct ZXing API method to stop
-                controls.stop();
-                controls = null;
+            if (codeReader && isScanning) {
+                // Use ZXing reset method
+                codeReader.reset();
+                codeReader = null;
                 isScanning = false;
                 document.getElementById('start-btn').disabled = false;
                 document.getElementById('stop-btn').disabled = true;
@@ -474,7 +464,7 @@
                 location: location,
                 area_name: 'Camera Scan',
                 session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (ZXing)'
+                device_info: navigator.userAgent + ' (ZXing v2.7.0)'
             };
 
             addToScanLog(scanData);
@@ -532,7 +522,7 @@
 
         async function toggleTorch() {
             try {
-                const video = document.querySelector('#qr-reader video');
+                const video = document.querySelector('#qr-reader');
                 if (!video || !video.srcObject) {
                     showStatus('Camera not active', 'error');
                     return;
