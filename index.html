@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.7.0</title>
+    <title>QR Code Scanner & Logger v2.8.0</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -58,12 +59,93 @@
             display: inline-block;
         }
         
+        .auth-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 2px solid #e9ecef;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #28a745;
+        }
+        
+        .user-details {
+            text-align: left;
+        }
+        
+        .user-name {
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        
+        .user-email {
+            font-size: 12px;
+            color: #666;
+            margin: 0;
+        }
+        
+        .google-sign-in-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+            text-decoration: none;
+        }
+        
+        .google-sign-in-btn:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+        }
+        
+        .google-icon {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         .scanner-status {
             background: #f0f8ff;
             border-radius: 10px;
             padding: 15px;
             margin: 20px 0;
             color: #0066cc;
+        }
+        
+        .scanner-disabled {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
         }
         
         #qr-reader {
@@ -140,6 +222,10 @@
         
         .btn-secondary {
             background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
         }
         
         .status {
@@ -242,6 +328,11 @@
             color: #0066cc;
         }
         
+        .disabled-overlay {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
         @media (max-width: 480px) {
             .container {
                 padding: 20px;
@@ -264,6 +355,15 @@
             .manual-input-row .btn {
                 width: 100%;
             }
+            
+            .user-info {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .user-details {
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -272,63 +372,101 @@
         <div class="header">
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
-            <p>ZXing-powered QR code scanner with automatic Airtable logging</p>
-            <div class="version">Version 2.7.0 - Final Working ZXing</div>
+            <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
+            <div class="version">Version 2.8.0 - Google Authentication</div>
         </div>
 
-        <div class="scanner-status">
-            Ready to scan! No login required - click "Start Scanner" below.
-        </div>
-
-        <div class="session-info" id="session-info" style="display: none;">
-            <strong>Session Active:</strong> <span id="session-time">00:00</span> | 
-            <strong>Unique Scans:</strong> <span id="session-count">0</span>
-        </div>
-
-        <div class="scanner-section">
-            <video id="qr-reader" autoplay muted playsinline style="width: 100%; max-width: 400px; height: 300px; border: 3px dashed #667eea; border-radius: 15px; object-fit: cover;"></video>
-            <div class="controls">
-                <button class="btn" id="start-btn" onclick="startScanning()">Start Scanner</button>
-                <button class="btn btn-secondary" id="stop-btn" onclick="stopScanning()" disabled>Stop Scanner</button>
+        <!-- Authentication Section -->
+        <div class="auth-section" id="auth-section">
+            <div id="signed-out" style="display: block;">
+                <h3 style="color: #333; margin-bottom: 15px;">Sign In Required</h3>
+                <p style="color: #666; margin-bottom: 20px;">Please sign in with Google to use the QR scanner and log your scans.</p>
+                <div id="g_id_onload"
+                     data-client_id="783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                <button class="google-sign-in-btn" onclick="signInWithGoogle()">
+                    <div class="google-icon">
+                        <svg width="12" height="12" viewBox="0 0 24 24">
+                            <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                    </div>
+                    Sign in with Google
+                </button>
             </div>
-            
-            <div class="scanner-controls" id="scanner-controls" style="display: none;">
-                <button class="btn torch-btn" id="torch-btn" onclick="toggleTorch()">Flashlight</button>
-                <button class="btn focus-btn" onclick="triggerAutoFocus()">Focus</button>
-                <button class="btn" onclick="switchCamera()">Switch Camera</button>
-            </div>
-            
-            <div class="manual-entry-section">
-                <h3>Manual Entry</h3>
-                <p>Can't scan the QR code? Enter the content manually:</p>
-                <div class="manual-input-row">
-                    <input type="text" id="manual-qr-input" placeholder="Enter QR code content here...">
-                    <button class="btn" onclick="submitManualEntry()">Log Entry</button>
+
+            <div id="signed-in" style="display: none;">
+                <div class="user-info">
+                    <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
+                    <div class="user-details">
+                        <p class="user-name" id="user-name"></p>
+                        <p class="user-email" id="user-email"></p>
+                    </div>
+                    <button class="btn btn-danger" onclick="signOut()">Sign Out</button>
                 </div>
             </div>
         </div>
 
-        <div id="status" class="status" style="display: none;"></div>
+        <div id="scanner-content" class="disabled-overlay">
+            <div class="scanner-status" id="scanner-status">
+                Please sign in with Google to access the QR scanner.
+            </div>
 
-        <div class="log-section">
-            <h3>Recent Scans</h3>
-            <div id="scan-log"></div>
+            <div class="session-info" id="session-info" style="display: none;">
+                <strong>Session Active:</strong> <span id="session-time">00:00</span> | 
+                <strong>Unique Scans:</strong> <span id="session-count">0</span>
+            </div>
+
+            <div class="scanner-section">
+                <video id="qr-reader" autoplay muted playsinline style="width: 100%; max-width: 400px; height: 300px; border: 3px dashed #667eea; border-radius: 15px; object-fit: cover;"></video>
+                <div class="controls">
+                    <button class="btn" id="start-btn" onclick="startScanning()" disabled>Start Scanner</button>
+                    <button class="btn btn-secondary" id="stop-btn" onclick="stopScanning()" disabled>Stop Scanner</button>
+                </div>
+                
+                <div class="scanner-controls" id="scanner-controls" style="display: none;">
+                    <button class="btn torch-btn" id="torch-btn" onclick="toggleTorch()">Flashlight</button>
+                    <button class="btn focus-btn" onclick="triggerAutoFocus()">Focus</button>
+                    <button class="btn" onclick="switchCamera()">Switch Camera</button>
+                </div>
+                
+                <div class="manual-entry-section">
+                    <h3>Manual Entry</h3>
+                    <p>Can't scan the QR code? Enter the content manually:</p>
+                    <div class="manual-input-row">
+                        <input type="text" id="manual-qr-input" placeholder="Enter QR code content here..." disabled>
+                        <button class="btn" onclick="submitManualEntry()" disabled>Log Entry</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="status" class="status" style="display: none;"></div>
+
+            <div class="log-section">
+                <h3>Recent Scans</h3>
+                <div id="scan-log"></div>
+            </div>
         </div>
     </div>
 
     <script>
         // EMBEDDED AIRTABLE CONFIGURATION
         const config = {
-            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b', // REPLACE with your pat_xxxxx token
+            airtableToken: 'YOUR_AIRTABLE_TOKEN_HERE', // REPLACE with your pat_xxxxx token
             baseId: 'appt0JKW1vqQNEECo', // Your base ID is embedded
-            tableName: 'QR Scans'
+            tableName: 'QR Scans',
+            googleClientId: 'YOUR_GOOGLE_CLIENT_ID' // REPLACE with your Google OAuth client ID
         };
 
-        // Auto-configured user - no authentication required
-        const currentUser = {
-            name: 'Scanner User',
-            email: 'scanner@dutchx.com'
-        };
+        // User authentication state
+        let currentUser = null;
+        let isAuthenticated = false;
 
         // ZXing scanner variables
         let codeReader;
@@ -343,7 +481,115 @@
         const SCAN_COOLDOWN_MS = 200;
         let torchEnabled = false;
 
+        // Google Sign-In Functions
+        function signInWithGoogle() {
+            if (!config.googleClientId || config.googleClientId === 'YOUR_GOOGLE_CLIENT_ID') {
+                showStatus('Error: Google Client ID not configured. Please contact administrator.', 'error');
+                return;
+            }
+            
+            google.accounts.id.prompt();
+        }
+
+        function handleCredentialResponse(response) {
+            // Decode the JWT token to get user info
+            const responsePayload = decodeJwtResponse(response.credential);
+            
+            currentUser = {
+                id: responsePayload.sub,
+                name: responsePayload.name,
+                email: responsePayload.email,
+                picture: responsePayload.picture
+            };
+            
+            isAuthenticated = true;
+            updateAuthUI();
+            showStatus(`Welcome, ${currentUser.name}!`, 'success');
+        }
+
+        function decodeJwtResponse(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        function signOut() {
+            google.accounts.id.disableAutoSelect();
+            currentUser = null;
+            isAuthenticated = false;
+            
+            // Stop scanning if active
+            if (isScanning) {
+                stopScanning();
+            }
+            
+            updateAuthUI();
+            showStatus('Signed out successfully', 'info');
+        }
+
+        function updateAuthUI() {
+            const signedOut = document.getElementById('signed-out');
+            const signedIn = document.getElementById('signed-in');
+            const scannerContent = document.getElementById('scanner-content');
+            const scannerStatus = document.getElementById('scanner-status');
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const manualInput = document.getElementById('manual-qr-input');
+            const manualBtn = document.querySelector('.manual-input-row .btn');
+
+            if (isAuthenticated && currentUser) {
+                // Show signed-in state
+                signedOut.style.display = 'none';
+                signedIn.style.display = 'block';
+                
+                // Update user info
+                document.getElementById('user-name').textContent = currentUser.name;
+                document.getElementById('user-email').textContent = currentUser.email;
+                document.getElementById('user-avatar').src = currentUser.picture;
+                
+                // Enable scanner
+                scannerContent.classList.remove('disabled-overlay');
+                scannerStatus.className = 'scanner-status';
+                scannerStatus.textContent = 'Ready to scan! Click "Start Scanner" below.';
+                startBtn.disabled = false;
+                manualInput.disabled = false;
+                manualBtn.disabled = false;
+            } else {
+                // Show signed-out state
+                signedOut.style.display = 'block';
+                signedIn.style.display = 'none';
+                
+                // Disable scanner
+                scannerContent.classList.add('disabled-overlay');
+                scannerStatus.className = 'scanner-status scanner-disabled';
+                scannerStatus.textContent = 'Please sign in with Google to access the QR scanner.';
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                manualInput.disabled = true;
+                manualBtn.disabled = true;
+            }
+        }
+
+        // Initialize Google Sign-In
+        window.onload = function() {
+            if (config.googleClientId && config.googleClientId !== 'YOUR_GOOGLE_CLIENT_ID') {
+                google.accounts.id.initialize({
+                    client_id: config.googleClientId,
+                    callback: handleCredentialResponse
+                });
+            }
+            updateAuthUI();
+        };
+
         async function startScanning() {
+            if (!isAuthenticated) {
+                showStatus('Please sign in to use the scanner', 'error');
+                return;
+            }
+
             // Validate embedded token
             if (!config.airtableToken || config.airtableToken === 'YOUR_AIRTABLE_TOKEN_HERE') {
                 showStatus('Error: Airtable token not configured. Please contact administrator.', 'error');
@@ -392,7 +638,7 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus('ZXing scanner active! Point at QR codes (v2.7.0)', 'success');
+                showStatus(`ZXing scanner active! Point at QR codes (v2.8.0)`, 'success');
 
             } catch (err) {
                 console.error("ZXing scanner error:", err);
@@ -428,6 +674,8 @@
         }
 
         async function onScanSuccess(decodedText) {
+            if (!isAuthenticated) return;
+            
             console.log(`ZXing detected: ${decodedText}`);
             
             const now = Date.now();
@@ -461,10 +709,11 @@
                 qr_content: decodedText,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
+                user_id: currentUser.id,
                 location: location,
                 area_name: 'Camera Scan',
                 session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (ZXing v2.7.0)'
+                device_info: navigator.userAgent + ' (ZXing v2.8.0 + Google Auth)'
             };
 
             addToScanLog(scanData);
@@ -474,6 +723,11 @@
         }
 
         async function submitManualEntry() {
+            if (!isAuthenticated) {
+                showStatus('Please sign in to log entries', 'error');
+                return;
+            }
+
             const manualInput = document.getElementById('manual-qr-input');
             const qrContent = manualInput.value.trim();
             
@@ -505,10 +759,11 @@
                 qr_content: qrContent,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
+                user_id: currentUser.id,
                 location: location,
                 area_name: 'Manual Entry',
                 session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (Manual Entry)'
+                device_info: navigator.userAgent + ' (Manual Entry + Google Auth)'
             };
 
             addToScanLog(scanData);
@@ -641,6 +896,7 @@
                     "QR Content": scanData.qr_content,
                     "User Name": scanData.user_name,
                     "User Email": scanData.user_email,
+                    "User ID": scanData.user_id,
                     "Location": JSON.stringify(scanData.location),
                     "Area Name": scanData.area_name,
                     "Session ID": scanData.session_id,
@@ -678,7 +934,7 @@
             const logDiv = document.getElementById('scan-log');
             logDiv.innerHTML = scanLog.map(scan => `
                 <div class="log-entry">
-                    <div class="timestamp">${new Date().toLocaleString()}</div>
+                    <div class="timestamp">${new Date().toLocaleString()} - ${scan.user_name}</div>
                     <div class="content"><strong>${scan.area_name}:</strong> ${scan.qr_content}</div>
                 </div>
             `).join('');
