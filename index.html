@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.8.0</title>
+    <title>QR Code Scanner & Logger v2.8.1</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -565,7 +565,7 @@
                 // Disable scanner
                 scannerContent.classList.add('disabled-overlay');
                 scannerStatus.className = 'scanner-status scanner-disabled';
-                scannerStatus.textContent = 'Please sign in with Google to access the QR scanner.';
+                scannerStatus.textContent = 'Please sign in with your @dutchx.com Google account to access the scanner.';
                 startBtn.disabled = true;
                 stopBtn.disabled = true;
                 manualInput.disabled = true;
