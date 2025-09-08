@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.9.4</title>
+    <title>QR Code Scanner & Logger v2.10.0</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -373,7 +373,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.9.4 - ugh robots</div>
+            <div class="version">Version 2.10.0 - Location magic in airtable</div>
         </div>
 
         <!-- Authentication Section -->
@@ -867,22 +867,28 @@
         setInterval(updateSessionInfo, 1000);
 
         async function getCurrentLocation() {
+            console.log('Getting current location...');
             return new Promise((resolve) => {
                 if (navigator.geolocation) {
+                    console.log('Geolocation API available, requesting position...');
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
-                            resolve({
+                            const location = {
                                 latitude: position.coords.latitude,
                                 longitude: position.coords.longitude,
                                 accuracy: position.coords.accuracy
-                            });
+                            };
+                            console.log('Location retrieved successfully:', location);
+                            resolve(location);
                         },
                         (error) => {
-                            resolve({ error: "Location access denied" });
+                            console.error('Geolocation error:', error);
+                            resolve({ error: `Location access denied: ${error.message}` });
                         },
-                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
                     );
                 } else {
+                    console.error('Geolocation not supported');
                     resolve({ error: "Geolocation not supported" });
                 }
             });
@@ -896,6 +902,7 @@
                     "QR Content": scanData.qr_content,
                     "User Name": scanData.user_name,
                     "User Email": scanData.user_email,
+                    "User ID": scanData.user_id,
                     "Location": JSON.stringify(scanData.location),
                     "Area Name": scanData.area_name,
                     "Session ID": scanData.session_id,
