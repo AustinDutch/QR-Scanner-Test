@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.8.0</title>
+    <title>QR Code Scanner & Logger v2.8.2</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -373,7 +373,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.8.0 - please Google Authentication</div>
+            <div class="version">Version 2.8.2 - lat long </div>
         </div>
 
         <!-- Authentication Section -->
@@ -897,17 +897,19 @@
         async function sendToAirtable(scanData) {
             const url = `https://api.airtable.com/v0/${config.baseId}/${encodeURIComponent(config.tableName)}`;
             
-            const airtableRecord = {
-                fields: {
-                    "QR Content": scanData.qr_content,
-                    "User Name": scanData.user_name,
-                    "User Email": scanData.user_email,
-                    "Location": JSON.stringify(scanData.location),
-                    "Area Name": scanData.area_name,
-                    "Session ID": scanData.session_id,
-                    "Device Info": scanData.device_info
-                }
-            };
+         const airtableRecord = {
+    fields: {
+        "QR Content": scanData.qr_content,
+        "User Name": scanData.user_name,
+        "User Email": scanData.user_email,
+        "Location": JSON.stringify(scanData.location), // Keep original for backward compatibility
+        "Latitude": scanData.location.latitude || null,
+        "Longitude": scanData.location.longitude || null,
+        "Area Name": scanData.area_name,
+        "Session ID": scanData.session_id,
+        "Device Info": scanData.device_info
+    }
+};
 
             try {
                 const response = await fetch(url, {
