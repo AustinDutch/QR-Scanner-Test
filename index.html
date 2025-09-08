@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.10.0</title>
+    <title>QR Code Scanner & Logger v2.10.1</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -373,7 +373,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.10.0 - Location magic in airtable</div>
+            <div class="version">Version 2.10.1 - robots ugh</div>
         </div>
 
         <!-- Authentication Section -->
@@ -759,8 +759,9 @@
                 qr_content: qrContent,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
-                user_id: currentUser.id,
                 location: location,
+                latitude: location.latitude || null,
+                longitude: location.longitude || null,
                 area_name: 'Manual Entry',
                 session_id: sessionStartTime,
                 device_info: navigator.userAgent + ' (Manual Entry + Google Auth)'
@@ -969,4 +970,4 @@
         });
     </script>
 </body>
-</html>
+</html>F
