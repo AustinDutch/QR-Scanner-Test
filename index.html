@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.10.1</title>
+    <title>QR Code Scanner & Logger v2.11.0</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -373,14 +373,15 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.10.1 - robots ugh</div>
+            <div class="version">Version 2.11.0 - Separate Lat/Lng Fields</div>
         </div>
 
         <!-- Authentication Section -->
         <div class="auth-section" id="auth-section">
             <div id="signed-out" style="display: block;">
                 <h3 style="color: #333; margin-bottom: 15px;">Sign In Required</h3>
-                <p style="color: #666; margin-bottom: 20px;">Please sign in with Google to use the QR scanner and log your scans.</p>
+                <p style="color: #666; margin-bottom: 10px;">Please sign in with your <strong>@dutchx.com</strong> Google account to use the QR scanner.</p>
+                <p style="color: #999; font-size: 14px; margin-bottom: 20px;">Only DutchX team members can access this scanner.</p>
                 <div id="g_id_onload"
                      data-client_id="783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com"
                      data-context="signin"
@@ -415,7 +416,7 @@
 
         <div id="scanner-content" class="disabled-overlay">
             <div class="scanner-status" id="scanner-status">
-                Please sign in with Google to access the QR scanner.
+                Please sign in with your @dutchx.com Google account to access the scanner.
             </div>
 
             <div class="session-info" id="session-info" style="display: none;">
@@ -458,10 +459,10 @@
     <script>
         // EMBEDDED AIRTABLE CONFIGURATION
         const config = {
-            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b', // REPLACE with your pat_xxxxx token
-            baseId: 'appt0JKW1vqQNEECo', // Your base ID is embedded
+            airtableToken: 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b', 
+            baseId: 'appt0JKW1vqQNEECo', 
             tableName: 'QR Scans',
-            googleClientId: '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com' // REPLACE with your Google OAuth client ID
+            googleClientId: '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com'
         };
 
         // User authentication state
@@ -483,7 +484,7 @@
 
         // Google Sign-In Functions
         function signInWithGoogle() {
-            if (!config.googleClientId || config.googleClientId === 'YOUR_GOOGLE_CLIENT_ID') {
+            if (!config.googleClientId || config.googleClientId === '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com') {
                 showStatus('Error: Google Client ID not configured. Please contact administrator.', 'error');
                 return;
             }
@@ -494,6 +495,16 @@
         function handleCredentialResponse(response) {
             // Decode the JWT token to get user info
             const responsePayload = decodeJwtResponse(response.credential);
+            
+            // Check if email is from authorized domain
+            const userEmail = responsePayload.email;
+            const allowedDomain = '@dutchx.com';
+            
+            if (!userEmail.endsWith(allowedDomain)) {
+                showStatus(`Access denied. Only ${allowedDomain} email addresses are allowed.`, 'error');
+                signOut(); // Clear any partial authentication
+                return;
+            }
             
             currentUser = {
                 id: responsePayload.sub,
@@ -575,7 +586,15 @@
 
         // Initialize Google Sign-In
         window.onload = function() {
-            if (config.googleClientId && config.googleClientId !== 'YOUR_GOOGLE_CLIENT_ID') {
+            console.log('App starting...');
+            console.log('Config check:', {
+                hasGoogleClientId: !!(config.googleClientId && config.googleClientId !== '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.comD'),
+                hasAirtableToken: !!(config.airtableToken && config.airtableToken !== 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b'),
+                baseId: config.baseId,
+                tableName: config.tableName
+            });
+            
+            if (config.googleClientId && config.googleClientId !== '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com') {
                 google.accounts.id.initialize({
                     client_id: config.googleClientId,
                     callback: handleCredentialResponse
@@ -591,7 +610,7 @@
             }
 
             // Validate embedded token
-            if (!config.airtableToken || config.airtableToken === 'YOUR_AIRTABLE_TOKEN_HERE') {
+            if (!config.airtableToken || config.airtableToken === 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b') {
                 showStatus('Error: Airtable token not configured. Please contact administrator.', 'error');
                 return;
             }
@@ -638,7 +657,7 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
-                showStatus(`ZXing scanner active! Point at QR codes (v2.8.0)`, 'success');
+                showStatus(`ZXing scanner active! Point at QR codes (v2.11.0)`, 'success');
 
             } catch (err) {
                 console.error("ZXing scanner error:", err);
@@ -709,11 +728,12 @@
                 qr_content: decodedText,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
-                user_id: currentUser.id,
                 location: location,
+                latitude: location.latitude || null,
+                longitude: location.longitude || null,
                 area_name: 'Camera Scan',
                 session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (ZXing v2.8.0 + Google Auth)'
+                device_info: navigator.userAgent + ' (ZXing v2.11.0 + Google Auth)'
             };
 
             addToScanLog(scanData);
@@ -736,6 +756,9 @@
                 return;
             }
             
+            console.log('Starting manual entry process...');
+            console.log('QR Content:', qrContent);
+            
             if (sessionStartTime && sessionScans.has(qrContent)) {
                 showStatus(`Already logged "${qrContent}" in this session`, 'info');
                 return;
@@ -748,32 +771,45 @@
                 document.getElementById('session-info').style.display = 'block';
             }
             
-            sessionScans.add(qrContent);
-            sessionScanCount++;
-            updateSessionInfo();
-            resetSessionTimeout();
-            
-            const location = await getCurrentLocation();
-            
-            const scanData = {
-                qr_content: qrContent,
-                user_name: currentUser.name,
-                user_email: currentUser.email,
-                location: location,
-                latitude: location.latitude || null,
-                longitude: location.longitude || null,
-                area_name: 'Manual Entry',
-                session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (Manual Entry + Google Auth)'
-            };
+            try {
+                showStatus('Getting location...', 'info');
+                
+                sessionScans.add(qrContent);
+                sessionScanCount++;
+                updateSessionInfo();
+                resetSessionTimeout();
+                
+                const location = await getCurrentLocation();
+                console.log('Location:', location);
+                
+                const scanData = {
+                    qr_content: qrContent,
+                    user_name: currentUser.name,
+                    user_email: currentUser.email,
+                    location: location,
+                    latitude: location.latitude || null,
+                    longitude: location.longitude || null,
+                    area_name: 'Manual Entry',
+                    session_id: sessionStartTime,
+                    device_info: navigator.userAgent + ' (Manual Entry + Google Auth)'
+                };
+                
+                console.log('Scan data to send:', scanData);
 
-            addToScanLog(scanData);
-            await sendToAirtable(scanData);
-            
-            manualInput.value = '';
-            playSuccessSound();
-            vibrateFeedback();
-            showStatus(`Manually logged: ${qrContent}`, 'success');
+                addToScanLog(scanData);
+                
+                showStatus('Sending to Airtable...', 'info');
+                await sendToAirtable(scanData);
+                
+                manualInput.value = '';
+                playSuccessSound();
+                vibrateFeedback();
+                showStatus(`Manually logged: ${qrContent}`, 'success');
+                
+            } catch (error) {
+                console.error('Manual entry error:', error);
+                showStatus(`Error during manual entry: ${error.message}`, 'error');
+            }
         }
 
         async function toggleTorch() {
@@ -898,18 +934,23 @@
         async function sendToAirtable(scanData) {
             const url = `https://api.airtable.com/v0/${config.baseId}/${encodeURIComponent(config.tableName)}`;
             
+            // Send separate latitude and longitude fields for Airtable formula to use
             const airtableRecord = {
                 fields: {
                     "QR Content": scanData.qr_content,
                     "User Name": scanData.user_name,
                     "User Email": scanData.user_email,
-                    "User ID": scanData.user_id,
+                    "Latitude": scanData.latitude,
+                    "Longitude": scanData.longitude,
                     "Location": JSON.stringify(scanData.location),
                     "Area Name": scanData.area_name,
                     "Session ID": scanData.session_id,
                     "Device Info": scanData.device_info
                 }
             };
+
+            console.log('Sending to Airtable URL:', url);
+            console.log('Airtable record structure:', JSON.stringify(airtableRecord, null, 2));
 
             try {
                 const response = await fetch(url, {
@@ -921,16 +962,20 @@
                     body: JSON.stringify(airtableRecord)
                 });
 
+                console.log('Airtable response status:', response.status);
+                
                 if (response.ok) {
-                    console.log('Successfully sent to Airtable');
+                    const responseData = await response.json();
+                    console.log('Successfully sent to Airtable:', responseData);
+                    showStatus('Successfully logged to Airtable', 'success');
                 } else {
                     const error = await response.text();
-                    console.error('Airtable error:', error);
-                    showStatus('Error logging to Airtable. Check configuration.', 'error');
+                    console.error('Airtable error response:', error);
+                    showStatus(`Airtable error (${response.status}): Check console for details`, 'error');
                 }
             } catch (error) {
-                console.error('Network error:', error);
-                showStatus('Network error. Scan saved locally.', 'error');
+                console.error('Network error sending to Airtable:', error);
+                showStatus('Network error. Check console and connection.', 'error');
             }
         }
 
@@ -943,7 +988,7 @@
                 <div class="log-entry">
                     <div class="timestamp">${new Date().toLocaleString()} - ${scan.user_name}</div>
                     <div class="content"><strong>${scan.area_name}:</strong> ${scan.qr_content}</div>
-                    <div class="site-info" style="font-size: 12px; color: #666; margin-top: 5px;">📍 ${scan.site || 'Location pending...'}</div>
+                    <div class="site-info" style="font-size: 12px; color: #666; margin-top: 5px;">📍 Lat: ${scan.latitude}, Lng: ${scan.longitude}</div>
                 </div>
             `).join('');
         }
@@ -970,4 +1015,4 @@
         });
     </script>
 </body>
-</html>F
+</html>
