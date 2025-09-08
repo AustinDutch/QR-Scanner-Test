@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner & Logger v2.8.1</title>
+    <title>QR Code Scanner & Logger v2.8.0</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -936,6 +936,7 @@
                 <div class="log-entry">
                     <div class="timestamp">${new Date().toLocaleString()} - ${scan.user_name}</div>
                     <div class="content"><strong>${scan.area_name}:</strong> ${scan.qr_content}</div>
+                    <div class="site-info" style="font-size: 12px; color: #666; margin-top: 5px;">📍 ${scan.site || 'Location pending...'}</div>
                 </div>
             `).join('');
         }
