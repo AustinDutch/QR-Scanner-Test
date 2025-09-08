@@ -373,7 +373,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR Scanner</h1>
             <p>ZXing-powered QR code scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.8.0 - Google Authentication</div>
+            <div class="version">Version 2.8.0 - please Google Authentication</div>
         </div>
 
         <!-- Authentication Section -->
@@ -483,7 +483,7 @@
 
         // Google Sign-In Functions
         function signInWithGoogle() {
-            if (!config.googleClientId || config.googleClientId === '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com') {
+            if (!config.googleClientId || config.googleClientId === 'YOUR_GOOGLE_CLIENT_ID') {
                 showStatus('Error: Google Client ID not configured. Please contact administrator.', 'error');
                 return;
             }
@@ -575,7 +575,7 @@
 
         // Initialize Google Sign-In
         window.onload = function() {
-            if (config.googleClientId && config.googleClientId !== '783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com') {
+            if (config.googleClientId && config.googleClientId !== 'YOUR_GOOGLE_CLIENT_ID') {
                 google.accounts.id.initialize({
                     client_id: config.googleClientId,
                     callback: handleCredentialResponse
@@ -591,7 +591,7 @@
             }
 
             // Validate embedded token
-            if (!config.airtableToken || config.airtableToken === 'patSqLiMfyydkU4xk.e98b1ae3d9d97a43bb4f854fae4002bc482e9fc965890ce9414ecd5f3185d86b') {
+            if (!config.airtableToken || config.airtableToken === 'YOUR_AIRTABLE_TOKEN_HERE') {
                 showStatus('Error: Airtable token not configured. Please contact administrator.', 'error');
                 return;
             }
