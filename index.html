@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR & Barcode Scanner & Logger v2.9.6</title>
+    <title>QR & Barcode Scanner & Logger v2.9.7</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -424,7 +424,7 @@
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR & Barcode Scanner</h1>
             <p>ZXing-powered QR code & barcode scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.9.6 - QR + Barcode Support</div>
+            <div class="version">Version 2.9.7 - QR + Barcode Support</div>
         </div>
 
         <!-- Authentication Section -->
@@ -794,7 +794,17 @@
         async function onScanSuccess(decodedText, format) {
             if (!isAuthenticated) return;
             
-            const formatName = formatNames[format] || format || 'Unknown'; // NEW: get format name
+            // Convert format to readable string
+            let formatName;
+            if (typeof format === 'string' && formatNames[format]) {
+                formatName = formatNames[format];
+            } else if (typeof format === 'number' || typeof format === 'string') {
+                // Handle numeric format codes or unknown formats
+                formatName = `Format ${format}`;
+            } else {
+                formatName = 'Unknown Format';
+            }
+            
             console.log(`ZXing detected ${formatName}: ${decodedText}`);
             
             const now = Date.now();
