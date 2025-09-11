@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR & Barcode Scanner & Logger v2.9.7</title>
+    <title>QR & Barcode Scanner & Logger v2.9.9</title>
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -57,47 +57,6 @@
             padding: 5px 15px;
             border-radius: 15px;
             display: inline-block;
-        }
-        
-        .format-selector {
-            background: #f0f8ff;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        
-        .format-selector h4 {
-            color: #333;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        
-        .format-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-        }
-        
-        .format-option {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .format-option:hover {
-            border-color: #667eea;
-        }
-        
-        .format-option.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
         }
         
         .auth-section {
@@ -423,15 +382,15 @@
         <div class="header">
             <img src="https://www.dutchx.com/wp-content/uploads/2025/04/00_01-1-1-1.webp" alt="DutchX Logo" style="height: 60px; margin-bottom: 15px;">
             <h1>QR & Barcode Scanner</h1>
-            <p>ZXing-powered QR code & barcode scanner with Google Sign-In and Airtable logging</p>
-            <div class="version">Version 2.9.7 - QR + Barcode Support</div>
+            <p>Universal scanner for QR codes and barcodes with Google Sign-In and Airtable logging</p>
+            <div class="version">Version 2.9.9 - Universal Scanning</div>
         </div>
 
         <!-- Authentication Section -->
         <div class="auth-section" id="auth-section">
             <div id="signed-out" style="display: block;">
                 <h3 style="color: #333; margin-bottom: 15px;">Sign In Required</h3>
-                <p style="color: #666; margin-bottom: 20px;">Please sign in with Google to use the QR scanner and log your scans.</p>
+                <p style="color: #666; margin-bottom: 20px;">Please sign in with Google to use the scanner and log your scans.</p>
                 <div id="g_id_onload"
                      data-client_id="783722067011-5a5rl0oo44c0m2qc7ootc6ess8rllsbd.apps.googleusercontent.com"
                      data-context="signin"
@@ -466,19 +425,7 @@
 
         <div id="scanner-content" class="disabled-overlay">
             <div class="scanner-status" id="scanner-status">
-                Please sign in with Google to access the QR scanner.
-            </div>
-
-            <!-- Format Selection -->
-            <div class="format-selector" id="format-selector" style="display: none;">
-                <h4>Scan Format</h4>
-                <div class="format-options">
-                    <div class="format-option active" data-format="all" onclick="selectFormat('all')">QR + Barcode</div>
-                    <div class="format-option" data-format="qr" onclick="selectFormat('qr')">QR Only</div>
-                </div>
-                <div style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
-                    <strong>Current:</strong> <span id="current-format">QR codes + Barcodes</span>
-                </div>
+                Please sign in with Google to access the universal scanner.
             </div>
 
             <div class="session-info" id="session-info" style="display: none;">
@@ -543,9 +490,8 @@
         let lastScanTime = 0;
         const SCAN_COOLDOWN_MS = 200;
         let torchEnabled = false;
-        let selectedFormat = 'all'; // NEW: format selection
 
-        // NEW: Barcode format names
+        // Barcode format names
         const formatNames = {
             'QR_CODE': 'QR Code',
             'CODE_128': 'Code 128',
@@ -617,7 +563,6 @@
             const signedIn = document.getElementById('signed-in');
             const scannerContent = document.getElementById('scanner-content');
             const scannerStatus = document.getElementById('scanner-status');
-            const formatSelector = document.getElementById('format-selector'); // NEW
             const startBtn = document.getElementById('start-btn');
             const stopBtn = document.getElementById('stop-btn');
             const manualInput = document.getElementById('manual-qr-input');
@@ -635,9 +580,8 @@
                 
                 // Enable scanner
                 scannerContent.classList.remove('disabled-overlay');
-                formatSelector.style.display = 'block'; // NEW: show format selector
                 scannerStatus.className = 'scanner-status';
-                scannerStatus.textContent = 'Ready to scan! Click "Start Scanner" below.';
+                scannerStatus.textContent = 'Ready to scan QR codes and barcodes! Click "Start Scanner" below.';
                 startBtn.disabled = false;
                 manualInput.disabled = false;
                 manualBtn.disabled = false;
@@ -648,37 +592,12 @@
                 
                 // Disable scanner
                 scannerContent.classList.add('disabled-overlay');
-                formatSelector.style.display = 'none'; // NEW: hide format selector
                 scannerStatus.className = 'scanner-status scanner-disabled';
                 scannerStatus.textContent = 'Please sign in with your @dutchx.com Google account to access the scanner.';
                 startBtn.disabled = true;
                 stopBtn.disabled = true;
                 manualInput.disabled = true;
                 manualBtn.disabled = true;
-            }
-        }
-
-        // NEW: Format selection function
-        function selectFormat(format) {
-            selectedFormat = format;
-            
-            // Update UI
-            document.querySelectorAll('.format-option').forEach(option => {
-                option.classList.remove('active');
-            });
-            document.querySelector(`[data-format="${format}"]`).classList.add('active');
-            
-            // Update description
-            const descriptions = {
-                'all': 'QR codes + Barcodes',
-                'qr': 'QR codes only'
-            };
-            document.getElementById('current-format').textContent = descriptions[format];
-            
-            // If currently scanning, restart with new format
-            if (isScanning) {
-                stopScanning();
-                setTimeout(() => startScanning(), 500);
             }
         }
 
@@ -714,15 +633,10 @@
             resetSessionTimeout();
 
             try {
-                showStatus('Starting ZXing scanner...', 'info');
+                showStatus('Starting universal scanner...', 'info');
                 
-                // MODIFIED: Use multi-format reader based on selection
-                if (selectedFormat === 'qr') {
-                    codeReader = new ZXing.BrowserQRCodeReader();
-                } else {
-                    // Use multi-format reader for both QR and barcodes
-                    codeReader = new ZXing.BrowserMultiFormatReader();
-                }
+                // Use multi-format reader for both QR and barcodes
+                codeReader = new ZXing.BrowserMultiFormatReader();
                 
                 const videoInputDevices = await codeReader.listVideoInputDevices();
                 
@@ -743,9 +657,9 @@
                     'qr-reader', 
                     (result, error) => {
                         if (result) {
-                            onScanSuccess(result.text, result.format); // MODIFIED: pass format
+                            onScanSuccess(result.text, result.format);
                         }
-                        // Ignore scanning errors - normal when no QR visible
+                        // Ignore scanning errors - normal when no code visible
                     }
                 );
 
@@ -754,11 +668,10 @@
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('scanner-controls').style.display = 'flex';
                 
-                const formatText = selectedFormat === 'qr' ? 'QR only' : 'QR + Barcode';
-                showStatus(`ZXing scanner active! Point at codes (${formatText})`, 'success');
+                showStatus('Universal scanner active! Point at any QR code or barcode', 'success');
 
             } catch (err) {
-                console.error("ZXing scanner error:", err);
+                console.error("Scanner error:", err);
                 
                 if (err.name === 'NotAllowedError') {
                     showStatus('Camera access denied. Please allow camera permissions and refresh.', 'error');
@@ -767,7 +680,7 @@
                 } else if (err.name === 'NotReadableError') {
                     showStatus('Camera is being used by another app. Please close other camera apps.', 'error');
                 } else {
-                    showStatus(`ZXing scanner error: ${err.message || err}`, 'error');
+                    showStatus(`Scanner error: ${err.message || err}`, 'error');
                 }
                 
                 sessionStartTime = null;
@@ -786,11 +699,10 @@
                 document.getElementById('session-info').style.display = 'none';
                 document.getElementById('scanner-controls').style.display = 'none';
                 clearTimeout(sessionTimeout);
-                showStatus(`ZXing scanner stopped. Session: ${sessionScanCount} unique scans`, 'info');
+                showStatus(`Scanner stopped. Session: ${sessionScanCount} unique scans`, 'info');
             }
         }
 
-        // MODIFIED: Added format parameter
         async function onScanSuccess(decodedText, format) {
             if (!isAuthenticated) return;
             
@@ -805,7 +717,7 @@
                 formatName = 'Unknown Format';
             }
             
-            console.log(`ZXing detected ${formatName}: ${decodedText}`);
+            console.log(`Detected ${formatName}: ${decodedText}`);
             
             const now = Date.now();
             if (now - lastScanTime < SCAN_COOLDOWN_MS) {
@@ -836,14 +748,14 @@
             
             const scanData = {
                 qr_content: decodedText,
-                format: formatName, // NEW: include format
+                format: formatName,
                 user_name: currentUser.name,
                 user_email: currentUser.email,
                 user_id: currentUser.id,
                 location: location,
                 area_name: 'Camera Scan',
                 session_id: sessionStartTime,
-                device_info: navigator.userAgent + ' (ZXing v2.9.0 Multi-format + Google Auth)'
+                device_info: navigator.userAgent + ' (Universal Scanner v2.9.8 + Google Auth)'
             };
 
             addToScanLog(scanData);
@@ -862,7 +774,7 @@
             const qrContent = manualInput.value.trim();
             
             if (!qrContent) {
-                showStatus('Please enter QR code content first', 'error');
+                showStatus('Please enter code content first', 'error');
                 return;
             }
             
@@ -887,7 +799,7 @@
             
             const scanData = {
                 qr_content: qrContent,
-                format: 'Manual Entry', // NEW: set format for manual entry
+                format: 'Manual Entry',
                 user_name: currentUser.name,
                 user_email: currentUser.email,
                 user_id: currentUser.id,
@@ -1031,7 +943,7 @@
             const airtableRecord = {
                 fields: {
                     "QR Content": scanData.qr_content,
-                    "Format": scanData.format, // NEW: include format field
+                    "Format": scanData.format,
                     "User Name": scanData.user_name,
                     "User Email": scanData.user_email,
                     "Location": JSON.stringify(scanData.location), // Keep original for backward compatibility
@@ -1066,7 +978,6 @@
             }
         }
 
-        // MODIFIED: Show format in log entries
         function addToScanLog(scanData) {
             scanLog.unshift(scanData);
             if (scanLog.length > 10) scanLog.pop();
